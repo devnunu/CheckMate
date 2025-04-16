@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.ksp)
 }
 
@@ -29,11 +28,20 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlin {
+        jvmToolchain(17)
     }
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
+    }
+    buildFeatures {
+        compose = true
     }
 }
 
@@ -53,7 +61,7 @@ dependencies {
 
     // Room Database
     implementation(libs.bundles.room)
-    kapt(libs.room.compiler)
+    ksp(libs.room.compiler)
 
     // Koin DI
     implementation(libs.bundles.koin)
