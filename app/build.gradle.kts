@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.kapt)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -36,11 +38,53 @@ android {
 }
 
 dependencies {
+    // AndroidX Core 라이브러리
+    implementation(libs.bundles.androidx.core)
 
-    implementation(libs.androidx.core.ktx)
-    implementation(libs.androidx.appcompat)
-    implementation(libs.material)
+    // Compose BOM
+    implementation(platform(libs.compose.bom))
+
+    // Compose 핵심 라이브러리
+    implementation(libs.bundles.compose.core)
+
+    // Compose Navigation
+    implementation(libs.bundles.compose.navigation)
+    ksp(libs.compose.destinations.ksp)
+
+    // Room Database
+    implementation(libs.bundles.room)
+    kapt(libs.room.compiler)
+
+    // Koin DI
+    implementation(libs.bundles.koin)
+
+    // Coroutines
+    implementation(libs.bundles.coroutines)
+
+    // 날짜/시간 처리
+    implementation(libs.threetenabp)
+
+    // 위젯 (Glance)
+    implementation(libs.bundles.glance)
+
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
+
+    // Accompanist
+    implementation(libs.bundles.accompanist)
+
+    // 로깅
+    implementation(libs.timber)
+
+    // 테스트 의존성
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.androidx.test.ext)
+    androidTestImplementation(libs.androidx.test.espresso)
+
+    // Compose 테스트
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test)
+
+    // 디버그 전용 의존성
+    debugImplementation(libs.bundles.compose.debug)
 }
