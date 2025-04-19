@@ -2,6 +2,7 @@ package co.kr.checkmate.presentation.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -41,7 +42,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -51,8 +51,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.domain.model.Task
-import co.kr.checkmate.presentation.home.calendar.MonthCalendar
-import co.kr.checkmate.presentation.home.calendar.WeekCalendar
+import co.kr.checkmate.presentation.home.calendar.CalendarView
 import kotlinx.coroutines.flow.Flow
 import org.threeten.bp.format.DateTimeFormatter
 
@@ -67,11 +66,6 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
-    // 스크롤 위치에 따라 캘린더 타입 변경
-    val isScrolled by remember {
-        derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 }
-    }
-
     // 사이드 이펙트 처리
     LaunchedEffect(key1 = true) {
         sideEffect.collect { sideEffect ->
@@ -83,15 +77,6 @@ fun HomeScreen(
                 is HomeSideEffect.NavigateToAddTodo -> { }
                 is HomeSideEffect.NavigateToAddMemo -> { }
             }
-        }
-    }
-
-    // 스크롤에 따른 캘린더 타입 변경
-    LaunchedEffect(isScrolled) {
-        if (isScrolled && state.calendarType == CalendarType.MONTH) {
-            onEvent(HomeViewEvent.ChangeCalendarType)
-        } else if (!isScrolled && state.calendarType == CalendarType.WEEK) {
-            onEvent(HomeViewEvent.ChangeCalendarType)
         }
     }
 
@@ -136,31 +121,20 @@ fun HomeScreen(
                 state = listState
             ) {
                 item {
-                    // 캘린더 뷰
-                    when (state.calendarType) {
-                        CalendarType.MONTH -> {
-                            MonthCalendar(
-                                selectedDate = state.selectedDate,
-                                onDateSelected = { date ->
-                                    onEvent(HomeViewEvent.SelectDate(date))
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp)
-                            )
-                        }
-                        CalendarType.WEEK -> {
-                            WeekCalendar(
-                                selectedDate = state.selectedDate,
-                                onDateSelected = { date ->
-                                    onEvent(HomeViewEvent.SelectDate(date))
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp)
-                            )
-                        }
-                    }
+                    // 새로운 캘린더 뷰
+                    CalendarView(
+                        selectedDate = state.selectedDate,
+                        calendarType = state.calendarType,
+                        onDateSelected = { date ->
+                            onEvent(HomeViewEvent.SelectDate(date))
+                        },
+                        onExpandClick = {
+                            onEvent(HomeViewEvent.ChangeCalendarType)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    )
 
                     // 선택된 날짜 헤더
                     Text(
@@ -188,19 +162,28 @@ fun HomeScreen(
                     }
                 } else {
                     items(state.tasks) { task ->
-                        when (task) {
-                            is Task.Todo -> {
-                                TodoItem(
-                                    todo = task,
-                                    onToggle = { onEvent(HomeViewEvent.ToggleTodo(task.id)) },
-                                    onDelete = { onEvent(HomeViewEvent.DeleteTask(task.id)) }
-                                )
-                            }
-                            is Task.Memo -> {
-                                MemoItem(
-                                    memo = task,
-                                    onDelete = { onEvent(HomeViewEvent.DeleteTask(task.id)) }
-                                )
+                        // 아이템 애니메이션 적용
+                        AnimatedVisibility(
+                            visible = true,
+                            enter = fadeIn(animationSpec = tween(300)) +
+                                    expandVertically(animationSpec = tween(300)),
+                            exit = fadeOut(animationSpec = tween(300)) +
+                                    shrinkVertically(animationSpec = tween(300))
+                        ) {
+                            when (task) {
+                                is Task.Todo -> {
+                                    TodoItem(
+                                        todo = task,
+                                        onToggle = { onEvent(HomeViewEvent.ToggleTodo(task.id)) },
+                                        onDelete = { onEvent(HomeViewEvent.DeleteTask(task.id)) }
+                                    )
+                                }
+                                is Task.Memo -> {
+                                    MemoItem(
+                                        memo = task,
+                                        onDelete = { onEvent(HomeViewEvent.DeleteTask(task.id)) }
+                                    )
+                                }
                             }
                         }
                     }

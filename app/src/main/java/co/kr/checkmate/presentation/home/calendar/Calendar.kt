@@ -1,5 +1,7 @@
 package co.kr.checkmate.presentation.home.calendar
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -23,9 +25,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
@@ -45,8 +49,14 @@ fun MonthCalendar(
 ) {
     val currentMonth = remember(selectedDate) { YearMonth.from(selectedDate) }
     val scrollState = rememberScrollState()
+    // 애니메이션 상태 추가
+    val alphaAnimation by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "monthCalendarAlpha"
+    )
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.alpha(alphaAnimation)) {
         // 현재 월 헤더와 좌우 버튼
         Row(
             modifier = Modifier
@@ -146,8 +156,13 @@ fun WeekCalendar(
     val startOfWeek = remember(selectedDate) {
         selectedDate.minusDays(selectedDate.dayOfWeek.value % 7L)
     }
+    val alphaAnimation by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = tween(durationMillis = 300),
+        label = "weekCalendarAlpha"
+    )
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.alpha(alphaAnimation)) {
         // 현재 주 표시
         Row(
             modifier = Modifier
@@ -166,7 +181,11 @@ fun WeekCalendar(
             }
 
             Text(
-                text = "${startOfWeek.format(DateTimeFormatter.ofPattern("MM월 dd일"))} - ${startOfWeek.plusDays(6).format(DateTimeFormatter.ofPattern("MM월 dd일"))}",
+                text = "${startOfWeek.format(DateTimeFormatter.ofPattern("MM월 dd일"))} - ${
+                    startOfWeek.plusDays(
+                        6
+                    ).format(DateTimeFormatter.ofPattern("MM월 dd일"))
+                }",
                 style = MaterialTheme.typography.titleMedium
             )
 
