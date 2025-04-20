@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.home.components
+package co.kr.checkmate.presentation.home.components.task
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,8 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.domain.model.Task
-import co.kr.checkmate.presentation.home.MemoItem
-import co.kr.checkmate.presentation.home.TodoItem
 import org.threeten.bp.LocalDate
 
 @Composable

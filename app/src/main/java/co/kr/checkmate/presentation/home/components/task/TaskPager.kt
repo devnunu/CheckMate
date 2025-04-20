@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.home.components
+package co.kr.checkmate.presentation.home.components.task
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.pager.HorizontalPager

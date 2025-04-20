@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.home.calendar
+package co.kr.checkmate.presentation.home.components.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
