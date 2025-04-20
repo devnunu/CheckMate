@@ -1,6 +1,5 @@
 package co.kr.checkmate.presentation.home
 
-
 import androidx.lifecycle.viewModelScope
 import co.kr.checkmate.domain.usecase.DeleteTaskUseCase
 import co.kr.checkmate.domain.usecase.GetTasksUseCase
@@ -47,14 +46,8 @@ class HomeViewModel(
                 }
             }
 
-            is HomeViewEvent.ChangeCalendarType -> {
-                setState {
-                    val newType = when (calendarType) {
-                        CalendarType.MONTH -> CalendarType.WEEK
-                        CalendarType.WEEK -> CalendarType.MONTH
-                    }
-                    copy(calendarType = newType)
-                }
+            is HomeViewEvent.ToggleMonthCalendar -> {
+                setState { copy(showMonthCalendar = !showMonthCalendar) }
             }
 
             is HomeViewEvent.ExpandFab -> {
