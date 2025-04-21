@@ -45,7 +45,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MonthCalendarScreen(
+fun CalendarScreen(
     onBackPressed: () -> Unit,
     onDateSelected: (LocalDate) -> Unit,
     initialDate: LocalDate = LocalDate.now()

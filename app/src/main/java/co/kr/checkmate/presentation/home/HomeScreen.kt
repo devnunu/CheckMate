@@ -31,7 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import co.kr.checkmate.presentation.calendar.MonthCalendarScreen
+import co.kr.checkmate.presentation.calendar.CalendarScreen
 import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
 import co.kr.checkmate.presentation.home.components.task.TaskPager
 import co.kr.checkmate.presentation.memo.MemoBottomSheet
@@ -104,7 +104,7 @@ fun HomeScreen(
     ) { showMonthCalendar ->
         if (showMonthCalendar) {
             // 월간 캘린더 화면
-            MonthCalendarScreen(
+            CalendarScreen(
                 onBackPressed = {
                     onEvent(HomeViewEvent.ToggleMonthCalendar)
                 },
