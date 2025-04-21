@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.ksp)
+    kotlin("plugin.serialization") version "1.9.0"
 }
 
 android {
@@ -55,10 +56,6 @@ dependencies {
     // Compose 핵심 라이브러리
     implementation(libs.bundles.compose.core)
 
-    // Compose Navigation
-    implementation(libs.bundles.compose.navigation)
-    ksp(libs.compose.destinations.ksp)
-
     // Room Database
     implementation(libs.bundles.room)
     ksp(libs.room.compiler)
@@ -95,4 +92,10 @@ dependencies {
 
     // 디버그 전용 의존성
     debugImplementation(libs.bundles.compose.debug)
+
+    // serialization
+    implementation(libs.kotlinx.serialization.json)
+
+    // navigation
+    implementation(libs.androidx.navigation.compose)
 }

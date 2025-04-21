@@ -4,7 +4,7 @@ import androidx.lifecycle.viewModelScope
 import co.kr.checkmate.domain.usecase.DeleteTaskUseCase
 import co.kr.checkmate.domain.usecase.GetTasksUseCase
 import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
-import co.kr.checkmate.presentation.base.BaseViewModel
+import co.kr.checkmate.ui.base.BaseViewModel
 import kotlinx.coroutines.launch
 import org.threeten.bp.LocalDate
 

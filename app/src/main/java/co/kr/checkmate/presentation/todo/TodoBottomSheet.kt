@@ -163,9 +163,13 @@ fun TodoBottomSheet(
                         val localDate = Instant.ofEpochMilli(millis)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
-                        viewModel.processEvent(TodoViewEvent.SetDate(LocalDate.of(
-                            localDate.year, localDate.month, localDate.dayOfMonth
-                        )))
+                        viewModel.processEvent(
+                            TodoViewEvent.SetDate(
+                                LocalDate.of(
+                                    localDate.year, localDate.month, localDate.dayOfMonth
+                                )
+                            )
+                        )
                     }
                     showDatePicker = false
                 }) {

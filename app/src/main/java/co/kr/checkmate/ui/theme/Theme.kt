@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.theme
+package co.kr.checkmate.ui.theme
 
 import android.app.Activity
 import android.os.Build

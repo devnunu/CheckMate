@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.base
+package co.kr.checkmate.ui.base
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

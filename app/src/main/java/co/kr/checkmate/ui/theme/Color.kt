@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.theme
+package co.kr.checkmate.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

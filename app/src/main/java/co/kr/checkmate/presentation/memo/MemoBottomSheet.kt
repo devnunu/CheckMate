@@ -176,9 +176,13 @@ fun MemoBottomSheet(
                         val localDate = Instant.ofEpochMilli(millis)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
-                        viewModel.processEvent(MemoViewEvent.SetDate(LocalDate.of(
-                            localDate.year, localDate.month, localDate.dayOfMonth
-                        )))
+                        viewModel.processEvent(
+                            MemoViewEvent.SetDate(
+                                LocalDate.of(
+                                    localDate.year, localDate.month, localDate.dayOfMonth
+                                )
+                            )
+                        )
                     }
                     showDatePicker = false
                 }) {

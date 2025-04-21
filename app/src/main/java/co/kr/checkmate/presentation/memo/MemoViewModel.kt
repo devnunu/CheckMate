@@ -3,7 +3,7 @@ package co.kr.checkmate.presentation.memo
 import androidx.lifecycle.viewModelScope
 import co.kr.checkmate.domain.model.Task
 import co.kr.checkmate.domain.usecase.AddMemoUseCase
-import co.kr.checkmate.presentation.base.BaseViewModel
+import co.kr.checkmate.ui.base.BaseViewModel
 import kotlinx.coroutines.launch
 
 class MemoViewModel(

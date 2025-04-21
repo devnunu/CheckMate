@@ -2,6 +2,7 @@
 # Kotlin & Build Tools
 kotlin = "1.9.10"
 agp = "8.1.2"
+kotlin-serialization = "1.6.0"
 
 # AndroidX Core
 core-ktx = "1.12.0"
@@ -9,9 +10,12 @@ lifecycle = "2.6.2"
 activity-compose = "1.8.0"
 
 # Compose BOM
-compose-bom = "2023.10.01"
+compose-bom = "2024.09.00"
 compose-compiler = "1.5.3"
 compose-destinations = "1.9.52"
+
+# Navigation
+nav = "2.8.5"
 
 # Room
 room = "2.6.0"
@@ -48,6 +52,7 @@ androidx-lifecycle-runtime = { group = "androidx.lifecycle", name = "lifecycle-r
 androidx-lifecycle-viewmodel = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activity-compose" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlin-serialization" }
 
 # Compose BOM
 compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "compose-bom" }
@@ -62,8 +67,7 @@ compose-foundation = { group = "androidx.compose.foundation", name = "foundation
 compose-animation = { group = "androidx.compose.animation", name = "animation" }
 
 # Navigation
-compose-destinations-core = { group = "io.github.raamcosta.compose-destinations", name = "core", version.ref = "compose-destinations" }
-compose-destinations-ksp = { group = "io.github.raamcosta.compose-destinations", name = "ksp", version.ref = "compose-destinations" }
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "nav" }
 
 # Room
 room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -113,7 +117,6 @@ koin = ["koin-android", "koin-androidx-compose"]
 coroutines = ["kotlinx-coroutines-core", "kotlinx-coroutines-android"]
 glance = ["androidx-glance", "androidx-glance-appwidget", "androidx-glance-material3"]
 accompanist = ["accompanist-systemuicontroller", "accompanist-permissions"]
-compose-navigation = ["compose-destinations-core"]
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
