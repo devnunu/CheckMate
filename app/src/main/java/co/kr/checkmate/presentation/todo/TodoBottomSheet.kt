@@ -34,43 +34,48 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.Flow
+import co.kr.checkmate.ui.ext.collectSideEffect
+import org.koin.androidx.compose.koinViewModel
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodoBottomSheet(
-    onDismiss: () -> Unit,
+    viewModel: TodoViewModel = koinViewModel(),
     initialDate: LocalDate,
-    viewModel: TodoViewModel,
-    sideEffect: Flow<TodoSideEffect>
+    onDismiss: () -> Unit,
 ) {
-    val state by viewModel.state.collectAsState()
-    val sheetState = rememberModalBottomSheetState()
-    var showDatePicker by remember { mutableStateOf(false) }
-
     // 초기 날짜 설정
-    LaunchedEffect(key1 = initialDate) {
-        viewModel.processEvent(TodoViewEvent.SetDate(initialDate))
+    LaunchedEffect(initialDate) {
+        viewModel.onEvent(TodoViewEvent.SetDate(initialDate))
     }
-
-    // 사이드 이펙트 처리
-    LaunchedEffect(key1 = true) {
-        sideEffect.collect { effect ->
-            when (effect) {
-                is TodoSideEffect.TodoSaved -> onDismiss()
-                is TodoSideEffect.Dismissed -> onDismiss()
-                is TodoSideEffect.ShowError -> {
-                    // 에러 처리 (스낵바 등으로 표시 가능)
-                }
+    viewModel.collectSideEffect { sideEffect ->
+        when (sideEffect) {
+            is TodoSideEffect.TodoSaved -> onDismiss()
+            is TodoSideEffect.Dismissed -> onDismiss()
+            is TodoSideEffect.ShowError -> {
+                // 에러 처리 (스낵바 등으로 표시 가능)
             }
         }
     }
+    TodoBottomSheet(
+        state = viewModel.stateFlow.collectAsState().value,
+        onEvent = viewModel::onEvent
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TodoBottomSheet(
+    state: TodoState,
+    onEvent: (TodoViewEvent) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    var showDatePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
-        onDismissRequest = { viewModel.processEvent(TodoViewEvent.Dismiss) },
+        onDismissRequest = { onEvent(TodoViewEvent.Dismiss) },
         sheetState = sheetState
     ) {
         Column(
@@ -83,7 +88,7 @@ fun TodoBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { viewModel.processEvent(TodoViewEvent.Dismiss) }) {
+                IconButton(onClick = { onEvent(TodoViewEvent.Dismiss) }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기"
@@ -97,7 +102,7 @@ fun TodoBottomSheet(
                 )
 
                 Button(
-                    onClick = { viewModel.processEvent(TodoViewEvent.SaveTodo) },
+                    onClick = { onEvent(TodoViewEvent.SaveTodo) },
                     enabled = state.title.isNotBlank()
                 ) {
                     Icon(
@@ -114,7 +119,7 @@ fun TodoBottomSheet(
             // 입력 필드
             OutlinedTextField(
                 value = state.title,
-                onValueChange = { viewModel.processEvent(TodoViewEvent.UpdateTitle(it)) },
+                onValueChange = { onEvent(TodoViewEvent.UpdateTitle(it)) },
                 label = { Text("할 일") },
                 placeholder = { Text("할 일을 입력하세요") },
                 singleLine = true,
@@ -163,7 +168,7 @@ fun TodoBottomSheet(
                         val localDate = Instant.ofEpochMilli(millis)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
-                        viewModel.processEvent(
+                        onEvent(
                             TodoViewEvent.SetDate(
                                 LocalDate.of(
                                     localDate.year, localDate.month, localDate.dayOfMonth

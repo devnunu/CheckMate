@@ -8,16 +8,20 @@ import kotlinx.coroutines.launch
 
 class TodoViewModel(
     private val addTodoUseCase: AddTodoUseCase
-) : BaseViewModel<TodoState, TodoSideEffect>(TodoState()) {
+) : BaseViewModel<TodoState, TodoViewEvent, TodoSideEffect>(
+    initialState = TodoState()
+) {
 
-    fun processEvent(event: TodoViewEvent) {
+    override fun onEvent(event: TodoViewEvent) {
         when (event) {
             is TodoViewEvent.UpdateTitle -> {
                 setState { copy(title = event.title) }
             }
+
             is TodoViewEvent.SetDate -> {
                 setState { copy(date = event.date) }
             }
+
             is TodoViewEvent.SaveTodo -> saveTodo()
             is TodoViewEvent.Dismiss -> {
                 postSideEffect(TodoSideEffect.Dismissed)
@@ -26,9 +30,7 @@ class TodoViewModel(
     }
 
     private fun saveTodo() {
-        val currentState = state.value
-
-        if (currentState.title.isBlank()) {
+        if (state.title.isBlank()) {
             postSideEffect(TodoSideEffect.ShowError("제목을 입력해주세요."))
             return
         }
@@ -37,8 +39,8 @@ class TodoViewModel(
             setState { copy(isLoading = true) }
             try {
                 val todo = Task.Todo(
-                    title = currentState.title,
-                    date = currentState.date,
+                    title = state.title,
+                    date = state.date,
                     isCompleted = false
                 )
                 addTodoUseCase(todo)

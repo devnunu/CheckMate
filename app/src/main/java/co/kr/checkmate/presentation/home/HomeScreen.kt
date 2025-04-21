@@ -22,8 +22,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -31,8 +34,34 @@ import androidx.compose.ui.unit.dp
 import co.kr.checkmate.presentation.calendar.MonthCalendarScreen
 import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
 import co.kr.checkmate.presentation.home.components.task.TaskPager
-import kotlinx.coroutines.flow.Flow
+import co.kr.checkmate.presentation.memo.MemoBottomSheet
+import co.kr.checkmate.presentation.todo.TodoBottomSheet
+import co.kr.checkmate.ui.components.BottomSheetWrapper
+import co.kr.checkmate.ui.ext.collectSideEffect
+import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
+
+@Composable
+fun HomeScreen(
+    modifier: Modifier = Modifier,
+    viewModel: HomeViewModel
+) {
+    val snackBarHostState = remember { SnackbarHostState() }
+    viewModel.collectSideEffect { sideEffect ->
+        when (sideEffect) {
+            is HomeSideEffect.ShowSnackbar -> {
+                snackBarHostState.showSnackbar(sideEffect.message)
+            }
+        }
+    }
+
+    HomeScreen(
+        modifier = modifier,
+        state = viewModel.stateFlow.collectAsState().value,
+        onEvent = viewModel::onEvent,
+        snackBarHostState = snackBarHostState
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,21 +69,31 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     state: HomeState,
     onEvent: (HomeViewEvent) -> Unit,
-    sideEffect: Flow<HomeSideEffect>
+    snackBarHostState: SnackbarHostState
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
-
-    // 사이드 이펙트 처리
-    LaunchedEffect(key1 = true) {
-        sideEffect.collect { sideEffect ->
-            when (sideEffect) {
-                is HomeSideEffect.ShowSnackbar -> {
-                    snackbarHostState.showSnackbar(sideEffect.message)
-                }
-                // 추후 내비게이션 처리
-                is HomeSideEffect.NavigateToAddTodo -> { }
-                is HomeSideEffect.NavigateToAddMemo -> { }
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    BottomSheetWrapper(
+        viewModelSheetState = state.bottomSheetState,
+        onCloseBottomSheet = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) }
+    ) { tag ->
+        when (tag) {
+            is HomeBottomSheetTag.Todo -> {
+                selectedDate = tag.date
+                TodoBottomSheet(
+                    onDismiss = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
+                    initialDate = selectedDate,
+                )
             }
+
+            is HomeBottomSheetTag.Memo -> {
+                selectedDate = tag.date
+                MemoBottomSheet(
+                    onDismiss = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
+                    initialDate = selectedDate,
+                )
+            }
+
+            else -> Unit
         }
     }
 
@@ -110,7 +149,7 @@ fun HomeScreen(
                         }
                     )
                 },
-                snackbarHost = { SnackbarHost(snackbarHostState) }
+                snackbarHost = { SnackbarHost(snackBarHostState) }
             ) { paddingValues ->
                 if (state.isLoading && state.tasks.isEmpty()) {
                     Box(

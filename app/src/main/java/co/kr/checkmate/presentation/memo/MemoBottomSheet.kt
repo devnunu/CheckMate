@@ -34,43 +34,48 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.Flow
+import co.kr.checkmate.ui.ext.collectSideEffect
+import org.koin.androidx.compose.koinViewModel
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoBottomSheet(
+    viewModel: MemoViewModel = koinViewModel(),
     onDismiss: () -> Unit,
     initialDate: LocalDate,
-    viewModel: MemoViewModel,
-    sideEffect: Flow<MemoSideEffect>
 ) {
-    val state by viewModel.state.collectAsState()
-    val sheetState = rememberModalBottomSheetState()
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    // 초기 날짜 설정
-    LaunchedEffect(key1 = initialDate) {
-        viewModel.processEvent(MemoViewEvent.SetDate(initialDate))
-    }
-
-    // 사이드 이펙트 처리
-    LaunchedEffect(key1 = true) {
-        sideEffect.collect { effect ->
-            when (effect) {
-                is MemoSideEffect.MemoSaved -> onDismiss()
-                is MemoSideEffect.Dismissed -> onDismiss()
-                is MemoSideEffect.ShowError -> {
-                    // 에러 처리 (스낵바 등으로 표시 가능)
-                }
+    viewModel.collectSideEffect { sideEffect ->
+        when (sideEffect) {
+            is MemoSideEffect.MemoSaved -> onDismiss()
+            is MemoSideEffect.Dismissed -> onDismiss()
+            is MemoSideEffect.ShowError -> {
+                // 에러 처리 (스낵바 등으로 표시 가능)
             }
         }
     }
+    // 초기 날짜 설정
+    LaunchedEffect(initialDate) {
+        viewModel.onEvent(MemoViewEvent.SetDate(initialDate))
+    }
+    MemoBottomSheet(
+        state = viewModel.stateFlow.collectAsState().value,
+        onEvent = viewModel::onEvent
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MemoBottomSheet(
+    state: MemoState,
+    onEvent: (MemoViewEvent) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    var showDatePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
-        onDismissRequest = { viewModel.processEvent(MemoViewEvent.Dismiss) },
+        onDismissRequest = { onEvent(MemoViewEvent.Dismiss) },
         sheetState = sheetState
     ) {
         Column(
@@ -83,7 +88,7 @@ fun MemoBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { viewModel.processEvent(MemoViewEvent.Dismiss) }) {
+                IconButton(onClick = { onEvent(MemoViewEvent.Dismiss) }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기"
@@ -97,7 +102,7 @@ fun MemoBottomSheet(
                 )
 
                 Button(
-                    onClick = { viewModel.processEvent(MemoViewEvent.SaveMemo) },
+                    onClick = { onEvent(MemoViewEvent.SaveMemo) },
                     enabled = state.title.isNotBlank()
                 ) {
                     Icon(
@@ -114,7 +119,7 @@ fun MemoBottomSheet(
             // 제목 입력 필드
             OutlinedTextField(
                 value = state.title,
-                onValueChange = { viewModel.processEvent(MemoViewEvent.UpdateTitle(it)) },
+                onValueChange = { onEvent(MemoViewEvent.UpdateTitle(it)) },
                 label = { Text("제목") },
                 placeholder = { Text("메모 제목을 입력하세요") },
                 singleLine = true,
@@ -126,7 +131,7 @@ fun MemoBottomSheet(
             // 내용 입력 필드
             OutlinedTextField(
                 value = state.content,
-                onValueChange = { viewModel.processEvent(MemoViewEvent.UpdateContent(it)) },
+                onValueChange = { onEvent(MemoViewEvent.UpdateContent(it)) },
                 label = { Text("내용") },
                 placeholder = { Text("메모 내용을 입력하세요") },
                 minLines = 4,
@@ -176,7 +181,7 @@ fun MemoBottomSheet(
                         val localDate = Instant.ofEpochMilli(millis)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
-                        viewModel.processEvent(
+                        onEvent(
                             MemoViewEvent.SetDate(
                                 LocalDate.of(
                                     localDate.year, localDate.month, localDate.dayOfMonth

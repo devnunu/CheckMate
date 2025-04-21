@@ -1,34 +1,35 @@
 package co.kr.checkmate.ui.base
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
 
-abstract class BaseViewModel<S : Any, E : Any>(initialState: S) : ViewModel() {
+abstract class BaseViewModel<STATE : ViewState, VIEW_EVENT : ViewEvent, SIDE_EFFECT : SideEffect>(
+    initialState: STATE
+) : ViewModel() {
 
-    // 상태 관리
-    private val _state = MutableStateFlow(initialState)
-    val state: StateFlow<S> = _state.asStateFlow()
+    private val _stateFlow = MutableStateFlow(initialState)
+    val stateFlow: StateFlow<STATE> = _stateFlow
 
-    // 사이드 이펙트 관리
-    private val _sideEffect = Channel<E>()
-    val sideEffect = _sideEffect.receiveAsFlow()
+    protected val state: STATE
+        get() = _stateFlow.value
 
-    // 상태 업데이트 함수
-    protected fun setState(reducer: S.() -> S) {
-        val newState = state.value.reducer()
-        _state.value = newState
+    private val _sideEffects = Channel<SIDE_EFFECT>(capacity = Channel.BUFFERED)
+    val sideEffect: Flow<SIDE_EFFECT?> = _sideEffects.receiveAsFlow()
+
+    fun setState(reducer: STATE.() -> STATE) {
+        _stateFlow.update(reducer)
     }
 
-    // 사이드 이펙트 발행 함수
-    protected fun postSideEffect(effect: E) {
-        viewModelScope.launch {
-            _sideEffect.send(effect)
-        }
+    fun postSideEffect(sideEffect: SIDE_EFFECT) {
+        _sideEffects.trySend(sideEffect)
+    }
+
+    open fun onEvent(event: VIEW_EVENT) {
+        // 상속받아 사용하도록 처리
     }
 }

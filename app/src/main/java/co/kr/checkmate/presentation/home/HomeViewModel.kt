@@ -12,13 +12,15 @@ class HomeViewModel(
     private val getTasksUseCase: GetTasksUseCase,
     private val toggleTodoUseCase: ToggleTodoUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase
-) : BaseViewModel<HomeState, HomeSideEffect>(HomeState()) {
+) : BaseViewModel<HomeState, HomeViewEvent, HomeSideEffect>(
+    initialState = HomeState()
+) {
 
     init {
         loadTasks(LocalDate.now())
     }
 
-    fun onEvent(event: HomeViewEvent) {
+    override fun onEvent(event: HomeViewEvent) {
         when (event) {
             is HomeViewEvent.SelectDate -> {
                 setState { copy(selectedDate = event.date) }
@@ -59,11 +61,15 @@ class HomeViewModel(
             }
 
             is HomeViewEvent.NavigateToAddTodo -> {
-                postSideEffect(HomeSideEffect.NavigateToAddTodo(event.date))
+                openBottomSheet(HomeBottomSheetTag.Todo(event.date))
             }
 
             is HomeViewEvent.NavigateToAddMemo -> {
-                postSideEffect(HomeSideEffect.NavigateToAddMemo(event.date))
+                openBottomSheet(HomeBottomSheetTag.Memo(event.date))
+            }
+
+            is HomeViewEvent.OnClickCloseBottomSheet -> {
+                closeBottomSheet()
             }
         }
     }
@@ -83,5 +89,13 @@ class HomeViewModel(
                 }
             }
         }
+    }
+
+    private fun openBottomSheet(tag: HomeBottomSheetTag) {
+        setState { copy(bottomSheetState = bottomSheetState.open(tag)) }
+    }
+
+    private fun closeBottomSheet() {
+        setState { copy(bottomSheetState = bottomSheetState.close()) }
     }
 }

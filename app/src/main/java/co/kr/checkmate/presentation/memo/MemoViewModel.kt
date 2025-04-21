@@ -8,9 +8,11 @@ import kotlinx.coroutines.launch
 
 class MemoViewModel(
     private val addMemoUseCase: AddMemoUseCase
-) : BaseViewModel<MemoState, MemoSideEffect>(MemoState()) {
+) : BaseViewModel<MemoState, MemoViewEvent, MemoSideEffect>(
+    initialState = MemoState()
+) {
 
-    fun processEvent(event: MemoViewEvent) {
+    override fun onEvent(event: MemoViewEvent) {
         when (event) {
             is MemoViewEvent.UpdateTitle -> {
                 setState { copy(title = event.title) }
@@ -29,9 +31,7 @@ class MemoViewModel(
     }
 
     private fun saveMemo() {
-        val currentState = state.value
-
-        if (currentState.title.isBlank()) {
+        if (state.title.isBlank()) {
             postSideEffect(MemoSideEffect.ShowError("제목을 입력해주세요."))
             return
         }
@@ -40,9 +40,9 @@ class MemoViewModel(
             setState { copy(isLoading = true) }
             try {
                 val memo = Task.Memo(
-                    title = currentState.title,
-                    content = currentState.content,
-                    date = currentState.date
+                    title = state.title,
+                    content = state.content,
+                    date = state.date
                 )
                 addMemoUseCase(memo)
                 postSideEffect(MemoSideEffect.MemoSaved)
