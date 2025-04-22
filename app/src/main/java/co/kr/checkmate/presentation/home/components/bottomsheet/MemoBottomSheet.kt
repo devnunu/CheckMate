@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.memo
+package co.kr.checkmate.presentation.home.components.bottomsheet
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
