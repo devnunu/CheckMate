@@ -31,6 +31,11 @@ sealed class HomeViewEvent : ViewEvent {
     data class UpdateContent(val content: String) : HomeViewEvent()
     data class SetDate(val date: LocalDate) : HomeViewEvent()
     data object SaveMemo : HomeViewEvent()
+
+    // td
+    data class OnChangeTodoTitle(val title: String) : HomeViewEvent()
+    data class OnChangeTodoDate(val date: LocalDate) : HomeViewEvent()
+    data object OnUpdateTodo : HomeViewEvent()
 }
 
 sealed class HomeSideEffect : SideEffect {
@@ -45,11 +50,12 @@ data class HomeState(
     val showMonthCalendar: Boolean = false,
     val isFabExpanded: Boolean = false,
     val error: String? = null,
-
     // memo
     val editMemoTitle: String = "",
     val editMemoContent: String = "",
-
+    // td
+    val editTodoTitle: String = "",
+    // modal
     val bottomSheetState: ModalState<HomeBottomSheetTag> =
         ModalState.Closed(HomeBottomSheetTag.None)
 ) : ViewState

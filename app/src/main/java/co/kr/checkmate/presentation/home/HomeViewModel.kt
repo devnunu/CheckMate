@@ -3,6 +3,7 @@ package co.kr.checkmate.presentation.home
 import androidx.lifecycle.viewModelScope
 import co.kr.checkmate.domain.model.Task
 import co.kr.checkmate.domain.usecase.AddMemoUseCase
+import co.kr.checkmate.domain.usecase.AddTodoUseCase
 import co.kr.checkmate.domain.usecase.DeleteTaskUseCase
 import co.kr.checkmate.domain.usecase.GetTasksUseCase
 import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
@@ -14,7 +15,8 @@ class HomeViewModel(
     private val getTasksUseCase: GetTasksUseCase,
     private val toggleTodoUseCase: ToggleTodoUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
-    private val addMemoUseCase: AddMemoUseCase
+    private val addMemoUseCase: AddMemoUseCase,
+    private val addTodoUseCase: AddTodoUseCase
 ) : BaseViewModel<HomeState, HomeViewEvent, HomeSideEffect>(
     initialState = HomeState()
 ) {
@@ -85,6 +87,40 @@ class HomeViewModel(
                 setState { copy(selectedDate = event.date) }
             }
             is HomeViewEvent.SaveMemo -> saveMemo()
+
+            is HomeViewEvent.OnChangeTodoTitle -> {
+                setState { copy(editTodoTitle = event.title) }
+            }
+
+            is HomeViewEvent.OnChangeTodoDate -> {
+                setState { copy(selectedDate = event.date) }
+            }
+
+            is HomeViewEvent.OnUpdateTodo -> saveTodo()
+        }
+    }
+
+    private fun saveTodo() {
+        if (state.editTodoTitle.isBlank()) {
+//            postSideEffect(TodoSideEffect.ShowError("제목을 입력해주세요."))
+            return
+        }
+
+        viewModelScope.launch {
+            setState { copy(isLoading = true) }
+            try {
+                val todo = Task.Todo(
+                    title = state.editTodoTitle,
+                    date = state.selectedDate,
+                    isCompleted = false
+                )
+                addTodoUseCase(todo)
+                closeBottomSheet()
+            } catch (e: Exception) {
+//                postSideEffect(TodoSideEffect.ShowError("저장에 실패했습니다."))
+            } finally {
+                setState { copy(isLoading = false) }
+            }
         }
     }
 
@@ -129,6 +165,9 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * Modal
+     * */
     private fun openBottomSheet(tag: HomeBottomSheetTag) {
         setState { copy(bottomSheetState = bottomSheetState.open(tag)) }
     }

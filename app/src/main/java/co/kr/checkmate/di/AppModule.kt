@@ -12,7 +12,6 @@ import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
 import co.kr.checkmate.domain.usecase.UpdateMemoUseCase
 import co.kr.checkmate.domain.usecase.UpdateTodoUseCase
 import co.kr.checkmate.presentation.home.HomeViewModel
-import co.kr.checkmate.presentation.todo.TodoViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -42,6 +41,5 @@ val appModule = module {
     factory { UpdateMemoUseCase(get()) }
 
     // ViewModels
-    viewModel { HomeViewModel(get(), get(), get(), get()) }
-    viewModel { TodoViewModel(get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
 }

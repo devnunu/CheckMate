@@ -1,4 +1,4 @@
-package co.kr.checkmate.presentation.todo
+package co.kr.checkmate.presentation.home.components.bottomsheet
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,8 +25,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,48 +32,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import co.kr.checkmate.ui.ext.collectSideEffect
-import org.koin.androidx.compose.koinViewModel
+import co.kr.checkmate.presentation.home.HomeState
+import co.kr.checkmate.presentation.home.HomeViewEvent
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
 
-@Composable
-fun TodoBottomSheet(
-    viewModel: TodoViewModel = koinViewModel(),
-    initialDate: LocalDate,
-    onDismiss: () -> Unit,
-) {
-    // 초기 날짜 설정
-    LaunchedEffect(initialDate) {
-        viewModel.onEvent(TodoViewEvent.SetDate(initialDate))
-    }
-    viewModel.collectSideEffect { sideEffect ->
-        when (sideEffect) {
-            is TodoSideEffect.TodoSaved -> onDismiss()
-            is TodoSideEffect.Dismissed -> onDismiss()
-            is TodoSideEffect.ShowError -> {
-                // 에러 처리 (스낵바 등으로 표시 가능)
-            }
-        }
-    }
-    TodoBottomSheet(
-        state = viewModel.stateFlow.collectAsState().value,
-        onEvent = viewModel::onEvent
-    )
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodoBottomSheet(
-    state: TodoState,
-    onEvent: (TodoViewEvent) -> Unit,
+    state: HomeState,
+    onEvent: (HomeViewEvent) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
     var showDatePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
-        onDismissRequest = { onEvent(TodoViewEvent.Dismiss) },
+        onDismissRequest = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
         sheetState = sheetState
     ) {
         Column(
@@ -88,7 +61,7 @@ fun TodoBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { onEvent(TodoViewEvent.Dismiss) }) {
+                IconButton(onClick = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기"
@@ -102,8 +75,8 @@ fun TodoBottomSheet(
                 )
 
                 Button(
-                    onClick = { onEvent(TodoViewEvent.SaveTodo) },
-                    enabled = state.title.isNotBlank()
+                    onClick = { onEvent(HomeViewEvent.OnUpdateTodo) },
+                    enabled = state.editTodoTitle.isNotBlank()
                 ) {
                     Icon(
                         imageVector = Icons.Default.Save,
@@ -118,8 +91,8 @@ fun TodoBottomSheet(
 
             // 입력 필드
             OutlinedTextField(
-                value = state.title,
-                onValueChange = { onEvent(TodoViewEvent.UpdateTitle(it)) },
+                value = state.editTodoTitle,
+                onValueChange = { onEvent(HomeViewEvent.OnChangeTodoTitle(it)) },
                 label = { Text("할 일") },
                 placeholder = { Text("할 일을 입력하세요") },
                 singleLine = true,
@@ -134,7 +107,7 @@ fun TodoBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "날짜: ${state.date.toString()}",
+                    text = "날짜: ${state.selectedDate.toString()}",
                     style = MaterialTheme.typography.bodyLarge
                 )
 
@@ -156,7 +129,7 @@ fun TodoBottomSheet(
     // 날짜 선택 다이얼로그
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.date.atStartOfDay(ZoneId.systemDefault())
+            initialSelectedDateMillis = state.selectedDate.atStartOfDay(ZoneId.systemDefault())
                 .toInstant().toEpochMilli()
         )
 
@@ -169,7 +142,7 @@ fun TodoBottomSheet(
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                         onEvent(
-                            TodoViewEvent.SetDate(
+                            HomeViewEvent.OnChangeTodoDate(
                                 LocalDate.of(
                                     localDate.year, localDate.month, localDate.dayOfMonth
                                 )

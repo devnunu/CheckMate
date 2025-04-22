@@ -33,9 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.presentation.calendar.CalendarScreen
 import co.kr.checkmate.presentation.home.components.bottomsheet.MemoBottomSheet
+import co.kr.checkmate.presentation.home.components.bottomsheet.TodoBottomSheet
 import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
 import co.kr.checkmate.presentation.home.components.task.TaskPager
-import co.kr.checkmate.presentation.todo.TodoBottomSheet
 import co.kr.checkmate.ui.components.BottomSheetWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
 import org.threeten.bp.LocalDate
@@ -80,8 +80,8 @@ fun HomeScreen(
             is HomeBottomSheetTag.Todo -> {
                 selectedDate = tag.date
                 TodoBottomSheet(
-                    onDismiss = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
-                    initialDate = selectedDate,
+                    state = state,
+                    onEvent = onEvent
                 )
             }
 
