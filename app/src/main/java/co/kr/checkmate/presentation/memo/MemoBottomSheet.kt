@@ -25,8 +25,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,48 +32,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import co.kr.checkmate.ui.ext.collectSideEffect
-import org.koin.androidx.compose.koinViewModel
+import co.kr.checkmate.presentation.home.HomeState
+import co.kr.checkmate.presentation.home.HomeViewEvent
 import org.threeten.bp.Instant
 import org.threeten.bp.LocalDate
 import org.threeten.bp.ZoneId
 
-@Composable
-fun MemoBottomSheet(
-    viewModel: MemoViewModel = koinViewModel(),
-    onDismiss: () -> Unit,
-    initialDate: LocalDate,
-) {
-    viewModel.collectSideEffect { sideEffect ->
-        when (sideEffect) {
-            is MemoSideEffect.MemoSaved -> onDismiss()
-            is MemoSideEffect.Dismissed -> onDismiss()
-            is MemoSideEffect.ShowError -> {
-                // 에러 처리 (스낵바 등으로 표시 가능)
-            }
-        }
-    }
-    // 초기 날짜 설정
-    LaunchedEffect(initialDate) {
-        viewModel.onEvent(MemoViewEvent.SetDate(initialDate))
-    }
-    MemoBottomSheet(
-        state = viewModel.stateFlow.collectAsState().value,
-        onEvent = viewModel::onEvent
-    )
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MemoBottomSheet(
-    state: MemoState,
-    onEvent: (MemoViewEvent) -> Unit,
+    state: HomeState,
+    onEvent: (HomeViewEvent) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
     var showDatePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
-        onDismissRequest = { onEvent(MemoViewEvent.Dismiss) },
+        onDismissRequest = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
         sheetState = sheetState
     ) {
         Column(
@@ -88,7 +61,7 @@ fun MemoBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { onEvent(MemoViewEvent.Dismiss) }) {
+                IconButton(onClick = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기"
@@ -102,8 +75,8 @@ fun MemoBottomSheet(
                 )
 
                 Button(
-                    onClick = { onEvent(MemoViewEvent.SaveMemo) },
-                    enabled = state.title.isNotBlank()
+                    onClick = { onEvent(HomeViewEvent.SaveMemo) },
+                    enabled = state.editMemoTitle.isNotBlank()
                 ) {
                     Icon(
                         imageVector = Icons.Default.Save,
@@ -118,8 +91,8 @@ fun MemoBottomSheet(
 
             // 제목 입력 필드
             OutlinedTextField(
-                value = state.title,
-                onValueChange = { onEvent(MemoViewEvent.UpdateTitle(it)) },
+                value = state.editMemoTitle,
+                onValueChange = { onEvent(HomeViewEvent.UpdateTitle(it)) },
                 label = { Text("제목") },
                 placeholder = { Text("메모 제목을 입력하세요") },
                 singleLine = true,
@@ -130,8 +103,8 @@ fun MemoBottomSheet(
 
             // 내용 입력 필드
             OutlinedTextField(
-                value = state.content,
-                onValueChange = { onEvent(MemoViewEvent.UpdateContent(it)) },
+                value = state.editMemoContent,
+                onValueChange = { onEvent(HomeViewEvent.UpdateContent(it)) },
                 label = { Text("내용") },
                 placeholder = { Text("메모 내용을 입력하세요") },
                 minLines = 4,
@@ -147,7 +120,7 @@ fun MemoBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "날짜: ${state.date.toString()}",
+                    text = "날짜: ${state.selectedDate}",
                     style = MaterialTheme.typography.bodyLarge
                 )
 
@@ -169,7 +142,7 @@ fun MemoBottomSheet(
     // 날짜 선택 다이얼로그
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.date.atStartOfDay(ZoneId.systemDefault())
+            initialSelectedDateMillis = state.selectedDate.atStartOfDay(ZoneId.systemDefault())
                 .toInstant().toEpochMilli()
         )
 
@@ -182,7 +155,7 @@ fun MemoBottomSheet(
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                         onEvent(
-                            MemoViewEvent.SetDate(
+                            HomeViewEvent.SetDate(
                                 LocalDate.of(
                                     localDate.year, localDate.month, localDate.dayOfMonth
                                 )

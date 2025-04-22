@@ -22,7 +22,15 @@ sealed class HomeViewEvent : ViewEvent {
     data object CollapseFab : HomeViewEvent()
     data class NavigateToAddTodo(val date: LocalDate) : HomeViewEvent()
     data class NavigateToAddMemo(val date: LocalDate) : HomeViewEvent()
+
+    // modal
     data object OnClickCloseBottomSheet : HomeViewEvent()
+
+    // memo
+    data class UpdateTitle(val title: String) : HomeViewEvent()
+    data class UpdateContent(val content: String) : HomeViewEvent()
+    data class SetDate(val date: LocalDate) : HomeViewEvent()
+    data object SaveMemo : HomeViewEvent()
 }
 
 sealed class HomeSideEffect : SideEffect {
@@ -30,12 +38,18 @@ sealed class HomeSideEffect : SideEffect {
 }
 
 data class HomeState(
+    val isLoading: Boolean = false,
+
     val selectedDate: LocalDate = LocalDate.now(),
     val tasks: List<Task> = emptyList(),
     val showMonthCalendar: Boolean = false,
     val isFabExpanded: Boolean = false,
-    val isLoading: Boolean = false,
     val error: String? = null,
+
+    // memo
+    val editMemoTitle: String = "",
+    val editMemoContent: String = "",
+
     val bottomSheetState: ModalState<HomeBottomSheetTag> =
         ModalState.Closed(HomeBottomSheetTag.None)
 ) : ViewState

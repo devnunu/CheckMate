@@ -1,6 +1,8 @@
 package co.kr.checkmate.presentation.home
 
 import androidx.lifecycle.viewModelScope
+import co.kr.checkmate.domain.model.Task
+import co.kr.checkmate.domain.usecase.AddMemoUseCase
 import co.kr.checkmate.domain.usecase.DeleteTaskUseCase
 import co.kr.checkmate.domain.usecase.GetTasksUseCase
 import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
@@ -11,7 +13,8 @@ import org.threeten.bp.LocalDate
 class HomeViewModel(
     private val getTasksUseCase: GetTasksUseCase,
     private val toggleTodoUseCase: ToggleTodoUseCase,
-    private val deleteTaskUseCase: DeleteTaskUseCase
+    private val deleteTaskUseCase: DeleteTaskUseCase,
+    private val addMemoUseCase: AddMemoUseCase
 ) : BaseViewModel<HomeState, HomeViewEvent, HomeSideEffect>(
     initialState = HomeState()
 ) {
@@ -70,6 +73,41 @@ class HomeViewModel(
 
             is HomeViewEvent.OnClickCloseBottomSheet -> {
                 closeBottomSheet()
+            }
+
+            is HomeViewEvent.UpdateTitle -> {
+                setState { copy(editMemoTitle = event.title) }
+            }
+            is HomeViewEvent.UpdateContent -> {
+                setState { copy(editMemoContent = event.content) }
+            }
+            is HomeViewEvent.SetDate -> {
+                setState { copy(selectedDate = event.date) }
+            }
+            is HomeViewEvent.SaveMemo -> saveMemo()
+        }
+    }
+
+    private fun saveMemo() {
+        if (state.editMemoTitle.isBlank()) {
+//            postSideEffect(MemoSideEffect.ShowError("제목을 입력해주세요."))
+            return
+        }
+
+        viewModelScope.launch {
+            setState { copy(isLoading = true) }
+            try {
+                val memo = Task.Memo(
+                    title = state.editMemoTitle,
+                    content = state.editMemoContent,
+                    date = state.selectedDate
+                )
+                addMemoUseCase(memo)
+                closeBottomSheet()
+            } catch (e: Exception) {
+//                postSideEffect(MemoSideEffect.ShowError("메모 저장에 실패했습니다."))
+            } finally {
+                setState { copy(isLoading = false) }
             }
         }
     }

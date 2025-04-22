@@ -88,8 +88,8 @@ fun HomeScreen(
             is HomeBottomSheetTag.Memo -> {
                 selectedDate = tag.date
                 MemoBottomSheet(
-                    onDismiss = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
-                    initialDate = selectedDate,
+                    state = state,
+                    onEvent = onEvent
                 )
             }
 
