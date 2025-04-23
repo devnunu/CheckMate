@@ -1,10 +1,10 @@
 package co.kr.checkmate.presentation.home.components.task
 
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,39 +21,28 @@ fun TodoItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = todo.isCompleted,
-                onCheckedChange = { onToggle() }
-            )
-            Text(
-                text = todo.title,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 8.dp),
-                textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else null,
-                color = if (todo.isCompleted)
-                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                else
-                    MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "투두",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
+        Checkbox(
+            checked = todo.isCompleted,
+            onCheckedChange = { onToggle() }
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = todo.title,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f),
+            textDecoration = if (todo.isCompleted) TextDecoration.LineThrough else null,
+            color = if (todo.isCompleted)
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            else
+                MaterialTheme.colorScheme.onSurface
+        )
     }
 }
