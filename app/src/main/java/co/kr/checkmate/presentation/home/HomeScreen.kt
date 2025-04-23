@@ -127,14 +127,10 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackBarHostState) }
     ) { paddingValues ->
-        if (state.isLoading && state.tasks.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+        ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -142,18 +138,18 @@ fun HomeScreen(
             ) {
                 // 단순 날짜 텍스트만 표시
                 Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     text = state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)")),
                     style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
                 // 태스크 페이저 - 간격 축소
                 TaskPager(
                     modifier = Modifier
-                        .fillMaxWidth(),
+                        .weight(1f),
                     initialDate = state.selectedDate,
                     tasks = state.tasks,
                     onDateChanged = { date ->
@@ -165,6 +161,11 @@ fun HomeScreen(
                     onDeleteTask = { taskId ->
                         onEvent(HomeViewEvent.OnDeleteTask(taskId))
                     }
+                )
+            }
+            if (state.isLoading && state.tasks.isEmpty()) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
         }

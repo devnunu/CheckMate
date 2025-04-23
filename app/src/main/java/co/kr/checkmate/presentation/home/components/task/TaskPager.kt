@@ -1,6 +1,7 @@
 package co.kr.checkmate.presentation.home.components.task
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
@@ -65,8 +66,8 @@ fun TaskPager(
     }
 
     HorizontalPager(
+        modifier = modifier,
         state = pagerState,
-        modifier = modifier
     ) { page ->
         // 현재 페이지에 해당하는 날짜
         val pageDate = pageDates[page]
@@ -78,7 +79,7 @@ fun TaskPager(
 
         // 태스크 목록 표시
         TaskList(
-            date = pageDate,
+            modifier.fillMaxSize(),
             tasks = dayTasks,
             onToggleTodo = onToggleTodo,
             onDeleteTask = onDeleteTask
