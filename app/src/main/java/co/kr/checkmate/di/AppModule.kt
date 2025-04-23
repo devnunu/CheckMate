@@ -11,6 +11,7 @@ import co.kr.checkmate.domain.usecase.GetTasksUseCase
 import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
 import co.kr.checkmate.domain.usecase.UpdateMemoUseCase
 import co.kr.checkmate.domain.usecase.UpdateTodoUseCase
+import co.kr.checkmate.presentation.calendar.CalendarViewModel
 import co.kr.checkmate.presentation.home.HomeViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -42,4 +43,5 @@ val appModule = module {
 
     // ViewModels
     viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
+    viewModel { CalendarViewModel() }
 }

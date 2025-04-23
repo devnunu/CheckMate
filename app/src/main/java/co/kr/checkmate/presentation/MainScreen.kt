@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
+import co.kr.checkmate.presentation.calendar.CalendarScreen
 import co.kr.checkmate.presentation.home.HomeScreen
 import co.kr.checkmate.ui.ext.ScreenAnim
 import co.kr.checkmate.ui.ext.animComposable
@@ -31,6 +32,16 @@ fun MainScreen() {
         ) {
             HomeScreen(
                 viewModel = getViewModel(),
+                navController = navController
+            )
+        }
+
+        animComposable<NavRoute.Calendar>(
+            screenAnim = ScreenAnim.FADE_IN_OUT
+        ) {
+            CalendarScreen(
+                viewModel = getViewModel(),
+                navController = navController
             )
         }
     }

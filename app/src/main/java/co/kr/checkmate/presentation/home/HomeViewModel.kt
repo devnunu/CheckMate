@@ -53,8 +53,8 @@ class HomeViewModel(
                 }
             }
 
-            is HomeViewEvent.OnToggleMonthCalendar -> {
-                setState { copy(showMonthCalendar = !showMonthCalendar) }
+            is HomeViewEvent.OnClickCalendarIcon -> {
+                postSideEffect(HomeSideEffect.NavigateToCalendar)
             }
 
             is HomeViewEvent.OnExpandFab -> {
@@ -92,7 +92,7 @@ class HomeViewModel(
 
     private fun saveTodo(title: String) {
         if (title.isBlank()) {
-//            postSideEffect(TodoSideEffect.ShowError("제목을 입력해주세요."))
+            postSideEffect(HomeSideEffect.ShowSnackbar("제목을 입력해주세요."))
             return
         }
 
@@ -107,7 +107,7 @@ class HomeViewModel(
                 addTodoUseCase(todo)
                 closeBottomSheet()
             } catch (e: Exception) {
-//                postSideEffect(TodoSideEffect.ShowError("저장에 실패했습니다."))
+                postSideEffect(HomeSideEffect.ShowSnackbar("저장에 실패했습니다."))
             } finally {
                 setState { copy(isLoading = false) }
             }
@@ -116,7 +116,7 @@ class HomeViewModel(
 
     private fun saveMemo(title: String, content: String) {
         if (title.isBlank()) {
-//            postSideEffect(MemoSideEffect.ShowError("제목을 입력해주세요."))
+            postSideEffect(HomeSideEffect.ShowSnackbar("제목을 입력해주세요."))
             return
         }
 
@@ -131,7 +131,7 @@ class HomeViewModel(
                 addMemoUseCase(memo)
                 closeBottomSheet()
             } catch (e: Exception) {
-//                postSideEffect(MemoSideEffect.ShowError("메모 저장에 실패했습니다."))
+                postSideEffect(HomeSideEffect.ShowSnackbar("메모 저장에 실패했습니다."))
             } finally {
                 setState { copy(isLoading = false) }
             }

@@ -1,9 +1,5 @@
 package co.kr.checkmate.presentation.home
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,25 +24,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import co.kr.checkmate.presentation.calendar.CalendarScreen
+import androidx.navigation.NavController
 import co.kr.checkmate.presentation.home.components.bottomsheet.MemoBottomSheet
 import co.kr.checkmate.presentation.home.components.bottomsheet.TodoBottomSheet
 import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
 import co.kr.checkmate.presentation.home.components.task.TaskPager
 import co.kr.checkmate.ui.components.BottomSheetWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
+import co.kr.checkmate.ui.navigation.NavRoute
 import org.threeten.bp.format.DateTimeFormatter
 
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel
+    viewModel: HomeViewModel,
+    navController: NavController
 ) {
     val snackBarHostState = remember { SnackbarHostState() }
     viewModel.collectSideEffect { sideEffect ->
         when (sideEffect) {
             is HomeSideEffect.ShowSnackbar -> {
                 snackBarHostState.showSnackbar(sideEffect.message)
+            }
+
+            is HomeSideEffect.NavigateToCalendar -> {
+                navController.navigate(NavRoute.Calendar)
             }
         }
     }
@@ -89,101 +91,81 @@ fun HomeScreen(
         }
     }
 
-    AnimatedContent(
-        targetState = state.showMonthCalendar,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "calendarScreenTransition"
-    ) { showMonthCalendar ->
-        if (showMonthCalendar) {
-            // 월간 캘린더 화면
-            CalendarScreen(
-                onBackPressed = {
-                    onEvent(HomeViewEvent.OnToggleMonthCalendar)
-                },
-                onDateSelected = { date ->
-                    onEvent(HomeViewEvent.OnChangeSelectDate(date))
-                    onEvent(HomeViewEvent.OnToggleMonthCalendar)
-                },
-                initialDate = state.selectedDate
-            )
-        } else {
-            // 홈 화면
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = { Text("CheckMate") },
-                        actions = {
-                            // 캘린더 아이콘 추가
-                            IconButton(onClick = { onEvent(HomeViewEvent.OnToggleMonthCalendar) }) {
-                                Icon(
-                                    imageVector = Icons.Default.CalendarMonth,
-                                    contentDescription = "월간 캘린더 보기"
-                                )
-                            }
-                        }
-                    )
-                },
-                floatingActionButton = {
-                    ExpandableFab(
-                        isExpanded = state.isFabExpanded,
-                        onExpandChange = { expanded ->
-                            if (expanded) {
-                                onEvent(HomeViewEvent.OnExpandFab)
-                            } else {
-                                onEvent(HomeViewEvent.OnCollapseFab)
-                            }
-                        },
-                        onAddTodo = {
-                            onEvent(HomeViewEvent.OnClickAddTodoBtn)
-                        },
-                        onAddMemo = {
-                            onEvent(HomeViewEvent.OnClickAddMemoBtn)
-                        }
-                    )
-                },
-                snackbarHost = { SnackbarHost(snackBarHostState) }
-            ) { paddingValues ->
-                if (state.isLoading && state.tasks.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues)
-                    ) {
-                        // 단순 날짜 텍스트만 표시
-                        Text(
-                            text = state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)")),
-                            style = MaterialTheme.typography.titleMedium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        )
-
-                        // 태스크 페이저 - 간격 축소
-                        TaskPager(
-                            modifier = Modifier
-                                .fillMaxWidth(),
-                            initialDate = state.selectedDate,
-                            tasks = state.tasks,
-                            onDateChanged = { date ->
-                                onEvent(HomeViewEvent.OnChangeSelectDate(date))
-                            },
-                            onToggleTodo = { todoId ->
-                                onEvent(HomeViewEvent.OnToggleTodo(todoId))
-                            },
-                            onDeleteTask = { taskId ->
-                                onEvent(HomeViewEvent.OnDeleteTask(taskId))
-                            }
+    // 홈 화면
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("CheckMate") },
+                actions = {
+                    // 캘린더 아이콘 추가
+                    IconButton(onClick = { onEvent(HomeViewEvent.OnClickCalendarIcon) }) {
+                        Icon(
+                            imageVector = Icons.Default.CalendarMonth,
+                            contentDescription = "월간 캘린더 보기"
                         )
                     }
                 }
+            )
+        },
+        floatingActionButton = {
+            ExpandableFab(
+                isExpanded = state.isFabExpanded,
+                onExpandChange = { expanded ->
+                    if (expanded) {
+                        onEvent(HomeViewEvent.OnExpandFab)
+                    } else {
+                        onEvent(HomeViewEvent.OnCollapseFab)
+                    }
+                },
+                onAddTodo = {
+                    onEvent(HomeViewEvent.OnClickAddTodoBtn)
+                },
+                onAddMemo = {
+                    onEvent(HomeViewEvent.OnClickAddMemoBtn)
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackBarHostState) }
+    ) { paddingValues ->
+        if (state.isLoading && state.tasks.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // 단순 날짜 텍스트만 표시
+                Text(
+                    text = state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)")),
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+
+                // 태스크 페이저 - 간격 축소
+                TaskPager(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    initialDate = state.selectedDate,
+                    tasks = state.tasks,
+                    onDateChanged = { date ->
+                        onEvent(HomeViewEvent.OnChangeSelectDate(date))
+                    },
+                    onToggleTodo = { todoId ->
+                        onEvent(HomeViewEvent.OnToggleTodo(todoId))
+                    },
+                    onDeleteTask = { taskId ->
+                        onEvent(HomeViewEvent.OnDeleteTask(taskId))
+                    }
+                )
             }
         }
     }

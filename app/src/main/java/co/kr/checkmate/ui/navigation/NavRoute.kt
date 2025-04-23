@@ -9,5 +9,9 @@ sealed class NavRoute {
     @SerialName("Home")
     data object Home : NavRoute()
 
+    @Serializable
+    @SerialName("Calendar")
+    data object Calendar : NavRoute()
+
 
 }
