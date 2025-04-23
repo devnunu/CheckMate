@@ -9,31 +9,30 @@ import org.threeten.bp.LocalDate
 
 sealed interface HomeBottomSheetTag {
     data object None : HomeBottomSheetTag
-    data class Todo(val date: LocalDate) : HomeBottomSheetTag
-    data class Memo(val date: LocalDate) : HomeBottomSheetTag
+    data object Todo : HomeBottomSheetTag
+    data object Memo : HomeBottomSheetTag
 }
 
 sealed class HomeViewEvent : ViewEvent {
-    data class SelectDate(val date: LocalDate) : HomeViewEvent()
-    data class ToggleTodo(val todoId: Long) : HomeViewEvent()
-    data class DeleteTask(val taskId: Long) : HomeViewEvent()
-    data object ToggleMonthCalendar : HomeViewEvent()
-    data object ExpandFab : HomeViewEvent()
-    data object CollapseFab : HomeViewEvent()
-    data class NavigateToAddTodo(val date: LocalDate) : HomeViewEvent()
-    data class NavigateToAddMemo(val date: LocalDate) : HomeViewEvent()
+    data class OnChangeSelectDate(val date: LocalDate) : HomeViewEvent()
+    data class OnToggleTodo(val todoId: Long) : HomeViewEvent()
+    data class OnDeleteTask(val taskId: Long) : HomeViewEvent()
+    data object OnToggleMonthCalendar : HomeViewEvent()
+    data object OnExpandFab : HomeViewEvent()
+    data object OnCollapseFab : HomeViewEvent()
+    data object OnClickAddTodoBtn : HomeViewEvent()
+    data object OnClickAddMemoBtn : HomeViewEvent()
 
     // modal
     data object OnClickCloseBottomSheet : HomeViewEvent()
 
     // memo
-    data class SetDate(val date: LocalDate) : HomeViewEvent()
+    data class OnChangeMemoDate(val date: LocalDate) : HomeViewEvent()
     data class OnCreateMemo(val title: String, val content: String) : HomeViewEvent()
 
     // td
-    data class OnChangeTodoTitle(val title: String) : HomeViewEvent()
     data class OnChangeTodoDate(val date: LocalDate) : HomeViewEvent()
-    data object OnUpdateTodo : HomeViewEvent()
+    data class OnCreateTodo(val title: String) : HomeViewEvent()
 }
 
 sealed class HomeSideEffect : SideEffect {
@@ -48,8 +47,6 @@ data class HomeState(
     val showMonthCalendar: Boolean = false,
     val isFabExpanded: Boolean = false,
     val error: String? = null,
-    // td
-    val editTodoTitle: String = "",
     // modal
     val bottomSheetState: ModalState<HomeBottomSheetTag> =
         ModalState.Closed(HomeBottomSheetTag.None)

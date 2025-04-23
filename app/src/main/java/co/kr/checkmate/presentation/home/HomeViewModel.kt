@@ -27,12 +27,12 @@ class HomeViewModel(
 
     override fun onEvent(event: HomeViewEvent) {
         when (event) {
-            is HomeViewEvent.SelectDate -> {
+            is HomeViewEvent.OnChangeSelectDate -> {
                 setState { copy(selectedDate = event.date) }
                 loadTasks(event.date)
             }
 
-            is HomeViewEvent.ToggleTodo -> {
+            is HomeViewEvent.OnToggleTodo -> {
                 viewModelScope.launch {
                     try {
                         toggleTodoUseCase(event.todoId)
@@ -42,7 +42,7 @@ class HomeViewModel(
                 }
             }
 
-            is HomeViewEvent.DeleteTask -> {
+            is HomeViewEvent.OnDeleteTask -> {
                 viewModelScope.launch {
                     try {
                         deleteTaskUseCase(event.taskId)
@@ -53,48 +53,45 @@ class HomeViewModel(
                 }
             }
 
-            is HomeViewEvent.ToggleMonthCalendar -> {
+            is HomeViewEvent.OnToggleMonthCalendar -> {
                 setState { copy(showMonthCalendar = !showMonthCalendar) }
             }
 
-            is HomeViewEvent.ExpandFab -> {
+            is HomeViewEvent.OnExpandFab -> {
                 setState { copy(isFabExpanded = true) }
             }
 
-            is HomeViewEvent.CollapseFab -> {
+            is HomeViewEvent.OnCollapseFab -> {
                 setState { copy(isFabExpanded = false) }
             }
 
-            is HomeViewEvent.NavigateToAddTodo -> {
-                openBottomSheet(HomeBottomSheetTag.Todo(event.date))
+            is HomeViewEvent.OnClickAddTodoBtn -> {
+                openBottomSheet(HomeBottomSheetTag.Todo)
             }
 
-            is HomeViewEvent.NavigateToAddMemo -> {
-                openBottomSheet(HomeBottomSheetTag.Memo(event.date))
+            is HomeViewEvent.OnClickAddMemoBtn -> {
+                openBottomSheet(HomeBottomSheetTag.Memo)
             }
 
             is HomeViewEvent.OnClickCloseBottomSheet -> {
                 closeBottomSheet()
             }
 
-            is HomeViewEvent.SetDate -> {
+            is HomeViewEvent.OnChangeMemoDate -> {
                 setState { copy(selectedDate = event.date) }
             }
             is HomeViewEvent.OnCreateMemo -> saveMemo(event.title, event.content)
-            is HomeViewEvent.OnChangeTodoTitle -> {
-                setState { copy(editTodoTitle = event.title) }
-            }
 
             is HomeViewEvent.OnChangeTodoDate -> {
                 setState { copy(selectedDate = event.date) }
             }
 
-            is HomeViewEvent.OnUpdateTodo -> saveTodo()
+            is HomeViewEvent.OnCreateTodo -> saveTodo(event.title)
         }
     }
 
-    private fun saveTodo() {
-        if (state.editTodoTitle.isBlank()) {
+    private fun saveTodo(title: String) {
+        if (title.isBlank()) {
 //            postSideEffect(TodoSideEffect.ShowError("제목을 입력해주세요."))
             return
         }
@@ -103,7 +100,7 @@ class HomeViewModel(
             setState { copy(isLoading = true) }
             try {
                 val todo = Task.Todo(
-                    title = state.editTodoTitle,
+                    title = title,
                     date = state.selectedDate,
                     isCompleted = false
                 )

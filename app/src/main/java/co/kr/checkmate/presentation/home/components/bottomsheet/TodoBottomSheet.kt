@@ -18,12 +18,10 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,86 +42,82 @@ fun TodoBottomSheet(
     state: HomeState,
     onEvent: (HomeViewEvent) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState()
     var showDatePicker by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(
-        onDismissRequest = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) },
-        sheetState = sheetState
+    var title by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .padding(16.dp)
+            .fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth()
+        // 헤더
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // 헤더
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) }) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "닫기"
-                    )
-                }
-
-                Text(
-                    text = "투두 추가",
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.weight(1f)
+            IconButton(onClick = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) }) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "닫기"
                 )
-
-                Button(
-                    onClick = { onEvent(HomeViewEvent.OnUpdateTodo) },
-                    enabled = state.editTodoTitle.isNotBlank()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Save,
-                        contentDescription = "저장"
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("저장")
-                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 입력 필드
-            OutlinedTextField(
-                value = state.editTodoTitle,
-                onValueChange = { onEvent(HomeViewEvent.OnChangeTodoTitle(it)) },
-                label = { Text("할 일") },
-                placeholder = { Text("할 일을 입력하세요") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            Text(
+                text = "투두 추가",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.weight(1f)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 날짜 선택
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Button(
+                onClick = { onEvent(HomeViewEvent.OnCreateTodo(title)) },
+                enabled = title.isNotBlank()
             ) {
-                Text(
-                    text = "날짜: ${state.selectedDate.toString()}",
-                    style = MaterialTheme.typography.bodyLarge
+                Icon(
+                    imageVector = Icons.Default.Save,
+                    contentDescription = "저장"
                 )
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                IconButton(onClick = { showDatePicker = true }) {
-                    Icon(
-                        imageVector = Icons.Default.DateRange,
-                        contentDescription = "날짜 선택"
-                    )
-                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("저장")
             }
-
-            // 하단 여백
-            Spacer(modifier = Modifier.height(32.dp))
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 입력 필드
+        OutlinedTextField(
+            value = title,
+            onValueChange = { title = it },
+            label = { Text("할 일") },
+            placeholder = { Text("할 일을 입력하세요") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // 날짜 선택
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "날짜: ${state.selectedDate}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            IconButton(onClick = { showDatePicker = true }) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = "날짜 선택"
+                )
+            }
+        }
+
+        // 하단 여백
+        Spacer(modifier = Modifier.height(32.dp))
     }
 
     // 날짜 선택 다이얼로그
@@ -141,13 +135,9 @@ fun TodoBottomSheet(
                         val localDate = Instant.ofEpochMilli(millis)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
-                        onEvent(
-                            HomeViewEvent.OnChangeTodoDate(
-                                LocalDate.of(
-                                    localDate.year, localDate.month, localDate.dayOfMonth
-                                )
-                            )
-                        )
+                        val date =
+                            LocalDate.of(localDate.year, localDate.month, localDate.dayOfMonth)
+                        onEvent(HomeViewEvent.OnChangeTodoDate(date))
                     }
                     showDatePicker = false
                 }) {

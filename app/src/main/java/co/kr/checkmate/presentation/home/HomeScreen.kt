@@ -23,10 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -38,7 +35,6 @@ import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
 import co.kr.checkmate.presentation.home.components.task.TaskPager
 import co.kr.checkmate.ui.components.BottomSheetWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
-import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
 
 @Composable
@@ -54,7 +50,6 @@ fun HomeScreen(
             }
         }
     }
-
     HomeScreen(
         modifier = modifier,
         state = viewModel.stateFlow.collectAsState().value,
@@ -71,14 +66,12 @@ fun HomeScreen(
     onEvent: (HomeViewEvent) -> Unit,
     snackBarHostState: SnackbarHostState
 ) {
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     BottomSheetWrapper(
         viewModelSheetState = state.bottomSheetState,
         onCloseBottomSheet = { onEvent(HomeViewEvent.OnClickCloseBottomSheet) }
     ) { tag ->
         when (tag) {
             is HomeBottomSheetTag.Todo -> {
-                selectedDate = tag.date
                 TodoBottomSheet(
                     state = state,
                     onEvent = onEvent
@@ -86,7 +79,6 @@ fun HomeScreen(
             }
 
             is HomeBottomSheetTag.Memo -> {
-                selectedDate = tag.date
                 MemoBottomSheet(
                     state = state,
                     onEvent = onEvent
@@ -106,11 +98,11 @@ fun HomeScreen(
             // 월간 캘린더 화면
             CalendarScreen(
                 onBackPressed = {
-                    onEvent(HomeViewEvent.ToggleMonthCalendar)
+                    onEvent(HomeViewEvent.OnToggleMonthCalendar)
                 },
                 onDateSelected = { date ->
-                    onEvent(HomeViewEvent.SelectDate(date))
-                    onEvent(HomeViewEvent.ToggleMonthCalendar)
+                    onEvent(HomeViewEvent.OnChangeSelectDate(date))
+                    onEvent(HomeViewEvent.OnToggleMonthCalendar)
                 },
                 initialDate = state.selectedDate
             )
@@ -122,7 +114,7 @@ fun HomeScreen(
                         title = { Text("CheckMate") },
                         actions = {
                             // 캘린더 아이콘 추가
-                            IconButton(onClick = { onEvent(HomeViewEvent.ToggleMonthCalendar) }) {
+                            IconButton(onClick = { onEvent(HomeViewEvent.OnToggleMonthCalendar) }) {
                                 Icon(
                                     imageVector = Icons.Default.CalendarMonth,
                                     contentDescription = "월간 캘린더 보기"
@@ -136,16 +128,16 @@ fun HomeScreen(
                         isExpanded = state.isFabExpanded,
                         onExpandChange = { expanded ->
                             if (expanded) {
-                                onEvent(HomeViewEvent.ExpandFab)
+                                onEvent(HomeViewEvent.OnExpandFab)
                             } else {
-                                onEvent(HomeViewEvent.CollapseFab)
+                                onEvent(HomeViewEvent.OnCollapseFab)
                             }
                         },
                         onAddTodo = {
-                            onEvent(HomeViewEvent.NavigateToAddTodo(state.selectedDate))
+                            onEvent(HomeViewEvent.OnClickAddTodoBtn)
                         },
                         onAddMemo = {
-                            onEvent(HomeViewEvent.NavigateToAddMemo(state.selectedDate))
+                            onEvent(HomeViewEvent.OnClickAddMemoBtn)
                         }
                     )
                 },
@@ -181,13 +173,13 @@ fun HomeScreen(
                             initialDate = state.selectedDate,
                             tasks = state.tasks,
                             onDateChanged = { date ->
-                                onEvent(HomeViewEvent.SelectDate(date))
+                                onEvent(HomeViewEvent.OnChangeSelectDate(date))
                             },
                             onToggleTodo = { todoId ->
-                                onEvent(HomeViewEvent.ToggleTodo(todoId))
+                                onEvent(HomeViewEvent.OnToggleTodo(todoId))
                             },
                             onDeleteTask = { taskId ->
-                                onEvent(HomeViewEvent.DeleteTask(taskId))
+                                onEvent(HomeViewEvent.OnDeleteTask(taskId))
                             }
                         )
                     }

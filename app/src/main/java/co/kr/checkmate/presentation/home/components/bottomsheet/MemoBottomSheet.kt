@@ -150,7 +150,7 @@ fun MemoBottomSheet(
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                         onEvent(
-                            HomeViewEvent.SetDate(
+                            HomeViewEvent.OnChangeMemoDate(
                                 LocalDate.of(
                                     localDate.year, localDate.month, localDate.dayOfMonth
                                 )
