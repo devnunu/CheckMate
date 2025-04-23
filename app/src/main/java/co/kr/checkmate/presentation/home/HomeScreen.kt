@@ -32,6 +32,7 @@ import co.kr.checkmate.presentation.home.components.task.TaskPager
 import co.kr.checkmate.ui.components.BottomSheetWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
 import co.kr.checkmate.ui.navigation.NavRoute
+import co.kr.checkmate.ui.theme.blue10
 import org.threeten.bp.format.DateTimeFormatter
 
 @Composable
@@ -137,14 +138,27 @@ fun HomeScreen(
                     .padding(paddingValues)
             ) {
                 // 단순 날짜 텍스트만 표시
-                Text(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    text = state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일 (E)")),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                )
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    val yearMonth = state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy. MM월"))
+                    Text(
+                        text = yearMonth,
+                        style = MaterialTheme.typography.labelLarge,
+                        textAlign = TextAlign.Center,
+                        color = blue10,
+                    )
+                    val date = state.selectedDate.format(DateTimeFormatter.ofPattern("dd일.E"))
+                    Text(
+                        text = date,
+                        style = MaterialTheme.typography.headlineLarge,
+                        textAlign = TextAlign.Center,
+                        color = blue10,
+                    )
+                }
+
 
                 // 태스크 페이저 - 간격 축소
                 TaskPager(
