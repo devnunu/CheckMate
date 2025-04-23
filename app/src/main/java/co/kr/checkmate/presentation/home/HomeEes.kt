@@ -27,10 +27,8 @@ sealed class HomeViewEvent : ViewEvent {
     data object OnClickCloseBottomSheet : HomeViewEvent()
 
     // memo
-    data class UpdateTitle(val title: String) : HomeViewEvent()
-    data class UpdateContent(val content: String) : HomeViewEvent()
     data class SetDate(val date: LocalDate) : HomeViewEvent()
-    data object SaveMemo : HomeViewEvent()
+    data class OnCreateMemo(val title: String, val content: String) : HomeViewEvent()
 
     // td
     data class OnChangeTodoTitle(val title: String) : HomeViewEvent()
@@ -50,9 +48,6 @@ data class HomeState(
     val showMonthCalendar: Boolean = false,
     val isFabExpanded: Boolean = false,
     val error: String? = null,
-    // memo
-    val editMemoTitle: String = "",
-    val editMemoContent: String = "",
     // td
     val editTodoTitle: String = "",
     // modal

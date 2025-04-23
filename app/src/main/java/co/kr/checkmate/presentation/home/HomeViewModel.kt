@@ -77,17 +77,10 @@ class HomeViewModel(
                 closeBottomSheet()
             }
 
-            is HomeViewEvent.UpdateTitle -> {
-                setState { copy(editMemoTitle = event.title) }
-            }
-            is HomeViewEvent.UpdateContent -> {
-                setState { copy(editMemoContent = event.content) }
-            }
             is HomeViewEvent.SetDate -> {
                 setState { copy(selectedDate = event.date) }
             }
-            is HomeViewEvent.SaveMemo -> saveMemo()
-
+            is HomeViewEvent.OnCreateMemo -> saveMemo(event.title, event.content)
             is HomeViewEvent.OnChangeTodoTitle -> {
                 setState { copy(editTodoTitle = event.title) }
             }
@@ -124,8 +117,8 @@ class HomeViewModel(
         }
     }
 
-    private fun saveMemo() {
-        if (state.editMemoTitle.isBlank()) {
+    private fun saveMemo(title: String, content: String) {
+        if (title.isBlank()) {
 //            postSideEffect(MemoSideEffect.ShowError("제목을 입력해주세요."))
             return
         }
@@ -134,8 +127,8 @@ class HomeViewModel(
             setState { copy(isLoading = true) }
             try {
                 val memo = Task.Memo(
-                    title = state.editMemoTitle,
-                    content = state.editMemoContent,
+                    title = title,
+                    content = content,
                     date = state.selectedDate
                 )
                 addMemoUseCase(memo)
