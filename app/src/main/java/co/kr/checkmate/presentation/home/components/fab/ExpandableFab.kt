@@ -10,18 +10,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -65,11 +67,13 @@ fun ExpandableFab(
             }
         }
 
-        // 메인 FAB
+        // 메인 FAB - 디자인 개선
         FloatingActionButton(
             onClick = { onExpandChange(!isExpanded) },
-            containerColor = Color(0xFF4285F4),
-            modifier = Modifier.shadow(8.dp)
+            shape = CircleShape,
+            containerColor = MaterialTheme.colorScheme.primary, // 보라색 배경으로 변경
+            contentColor = Color.White,
+            modifier = Modifier.size(56.dp)
         ) {
             val rotation by animateFloatAsState(
                 targetValue = if (isExpanded) 45f else 0f,
