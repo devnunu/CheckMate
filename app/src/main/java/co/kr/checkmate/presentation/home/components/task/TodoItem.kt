@@ -21,6 +21,7 @@ fun TodoItem(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // 완료 여부에 관계없이 항상 표시
     Row(
         modifier = modifier
             .fillMaxWidth()

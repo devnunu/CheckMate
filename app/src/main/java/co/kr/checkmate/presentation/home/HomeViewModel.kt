@@ -36,6 +36,8 @@ class HomeViewModel(
                 viewModelScope.launch {
                     try {
                         toggleTodoUseCase(event.todoId)
+                        // 상태 갱신을 위해 현재 선택된 날짜의 데이터를 다시 로드
+                        loadTasks(state.selectedDate)
                     } catch (e: Exception) {
                         postSideEffect(HomeSideEffect.ShowSnackbar("할 일 상태 변경에 실패했습니다."))
                     }

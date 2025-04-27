@@ -42,7 +42,7 @@ fun TaskList(
                 }
             }
         } else {
-            // 투두와 메모 섞어서 표시 (ID 기준 정렬)
+            // 여기서 아이템을 필터링하지 않고 모두 표시합니다.
             items(tasks.sortedByDescending { it.id }) { task ->
                 when (task) {
                     is Task.Todo -> {
