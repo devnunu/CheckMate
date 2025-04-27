@@ -2,10 +2,9 @@ package co.kr.checkmate.presentation.home.components.fab
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,10 +36,11 @@ fun ExpandableFab(
     Box(
         contentAlignment = Alignment.BottomEnd
     ) {
+        // 메뉴 아이템들
         AnimatedVisibility(
             visible = isExpanded,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(200))
         ) {
             Column(
                 horizontalAlignment = Alignment.End,
@@ -67,11 +67,11 @@ fun ExpandableFab(
             }
         }
 
-        // 메인 FAB - 디자인 개선
+        // 메인 FAB
         FloatingActionButton(
             onClick = { onExpandChange(!isExpanded) },
             shape = CircleShape,
-            containerColor = MaterialTheme.colorScheme.primary, // 보라색 배경으로 변경
+            containerColor = MaterialTheme.colorScheme.primary,
             contentColor = Color.White,
             modifier = Modifier.size(56.dp)
         ) {
