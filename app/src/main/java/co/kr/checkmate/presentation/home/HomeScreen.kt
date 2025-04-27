@@ -33,7 +33,7 @@ import androidx.navigation.NavController
 import co.kr.checkmate.presentation.home.components.bottomsheet.MemoBottomSheet
 import co.kr.checkmate.presentation.home.components.bottomsheet.TodoBottomSheet
 import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
-import co.kr.checkmate.presentation.home.components.task.TaskPager
+import co.kr.checkmate.presentation.home.components.pager.TaskPager
 import co.kr.checkmate.ui.components.BottomSheetWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
 import co.kr.checkmate.ui.navigation.NavRoute
