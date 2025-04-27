@@ -1,10 +1,15 @@
 package co.kr.checkmate.presentation.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +38,7 @@ import co.kr.checkmate.ui.components.BottomSheetWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
 import co.kr.checkmate.ui.navigation.NavRoute
 import co.kr.checkmate.ui.theme.blue10
+import org.threeten.bp.LocalDate
 import org.threeten.bp.format.DateTimeFormatter
 
 @Composable
@@ -137,7 +143,7 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // 단순 날짜 텍스트만 표시
+                // HomeScreen.kt의 날짜 표시 부분 수정
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -147,16 +153,37 @@ fun HomeScreen(
                     Text(
                         text = yearMonth,
                         style = MaterialTheme.typography.labelLarge,
-                        textAlign = TextAlign.Center,
+                        textAlign = TextAlign.Start,
                         color = blue10,
                     )
-                    val date = state.selectedDate.format(DateTimeFormatter.ofPattern("dd일.E"))
-                    Text(
-                        text = date,
-                        style = MaterialTheme.typography.headlineLarge,
-                        textAlign = TextAlign.Center,
-                        color = blue10,
-                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val date = state.selectedDate.format(DateTimeFormatter.ofPattern("dd일.E"))
+                        Text(
+                            text = date,
+                            style = MaterialTheme.typography.headlineLarge,
+                            textAlign = TextAlign.Start,
+                            color = blue10,
+                        )
+
+                        // 오늘 날짜인 경우 "Today" 표시
+                        if (state.selectedDate.isEqual(LocalDate.now())) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Today",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
 
 

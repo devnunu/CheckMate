@@ -1,16 +1,36 @@
 package co.kr.checkmate.presentation.home.components.task
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import co.kr.checkmate.domain.model.Task
 import kotlinx.coroutines.launch
+import org.threeten.bp.DayOfWeek
 import org.threeten.bp.LocalDate
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -23,66 +43,143 @@ fun TaskPager(
     onDeleteTask: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 항상 3페이지만 사용: 전날, 오늘, 다음날
-    val pageCount = 3
-    val middlePage = 1 // 가운데 페이지 인덱스 (0: 이전날, 1: 현재날, 2: 다음날)
+    // 현재 날짜의 해당 주 월요일 구하기
+    var currentWeekMonday by remember {
+        mutableStateOf(initialDate.with(DayOfWeek.MONDAY))
+    }
 
-    // 페이저 상태 초기화 - 항상 가운데 페이지(현재 날짜)에서 시작
+    // 현재 주의 모든 날짜 (월~일)
+    val weekDates = remember(currentWeekMonday) {
+        (0..6).map { currentWeekMonday.plusDays(it.toLong()) }
+    }
+
+    // 표시할 날짜와 가장 가까운 인덱스 찾기
+    val initialPageIndex = remember(weekDates, initialDate) {
+        weekDates.indexOfFirst { it.isEqual(initialDate) }.takeIf { it >= 0 } ?: 0
+    }
+
     val pagerState = rememberPagerState(
-        initialPage = middlePage,
-        pageCount = { pageCount }
+        initialPage = initialPageIndex,
+        pageCount = { 7 }
     )
 
     val coroutineScope = rememberCoroutineScope()
 
-    // 각 페이지에 표시할 날짜 계산
-    val pageDates = remember(initialDate) {
-        listOf(
-            initialDate.minusDays(1), // 이전 날짜
-            initialDate,              // 현재 날짜
-            initialDate.plusDays(1)   // 다음 날짜
-        )
-    }
-
-    // 페이지가 변경되었을 때 (스와이프 후)
-    LaunchedEffect(pagerState.currentPage, initialDate) {
-        // 현재 페이지가 가운데가 아니면 (사용자가 스와이프 했다면)
-        if (pagerState.currentPage != middlePage) {
-            // 새로운 날짜 계산 (이전날 또는 다음날)
-            val newDate = if (pagerState.currentPage == 0) {
-                initialDate.minusDays(1)
-            } else {
-                initialDate.plusDays(1)
+    Box(modifier = modifier) {
+        // 페이저
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            val pageDate = weekDates[page]
+            val dayTasks = remember(tasks, pageDate) {
+                tasks.filter { it.date == pageDate }
             }
 
-            // 상위 컴포넌트에 날짜 변경 알림
-            onDateChanged(newDate)
+            TaskList(
+                modifier = Modifier.fillMaxSize(),
+                tasks = dayTasks,
+                onToggleTodo = onToggleTodo,
+                onDeleteTask = onDeleteTask
+            )
+        }
 
-            // 페이저를 가운데 페이지로 즉시 재설정
-            coroutineScope.launch {
-                pagerState.scrollToPage(middlePage)
+        // 페이지 인디케이터와 화살표 버튼을 Box로 감싸서 레이아웃 안정화
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = 16.dp)
+                .height(48.dp)  // 고정 높이를 지정하여 안정화
+        ) {
+            Row(
+                modifier = Modifier.align(Alignment.CenterStart),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 왼쪽 화살표 영역 (고정 크기)
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // 월요일에만 왼쪽 화살표 표시
+                    if (pagerState.currentPage == 0) {
+                        IconButton(
+                            onClick = {
+                                // 저번주 일요일로 이동
+                                val previousWeekSunday = currentWeekMonday.minusDays(1)
+                                onDateChanged(previousWeekSunday)
+                                // 현재 주 갱신
+                                currentWeekMonday = previousWeekSunday.with(DayOfWeek.MONDAY)
+                                // 페이저 페이지를 6(일요일)로 설정
+                                coroutineScope.launch {
+                                    pagerState.scrollToPage(6)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowLeft,
+                                contentDescription = "이전 주",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+
+                // 페이지 인디케이터
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    weekDates.forEachIndexed { index, _ ->
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(
+                                    color = if (pagerState.currentPage == index)
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                )
+                        )
+                    }
+                }
+
+                // 오른쪽 화살표 영역 (고정 크기)
+                Box(
+                    modifier = Modifier.size(48.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // 일요일에만 오른쪽 화살표 표시
+                    if (pagerState.currentPage == 6) {
+                        IconButton(
+                            onClick = {
+                                // 다음주 월요일로 이동
+                                val nextWeekMonday = currentWeekMonday.plusDays(7)
+                                onDateChanged(nextWeekMonday)
+                                // 현재 주 갱신
+                                currentWeekMonday = nextWeekMonday
+                                // 페이저 페이지를 0(월요일)로 설정
+                                coroutineScope.launch {
+                                    pagerState.scrollToPage(0)
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowRight,
+                                contentDescription = "다음 주",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 
-    HorizontalPager(
-        modifier = modifier,
-        state = pagerState,
-    ) { page ->
-        // 현재 페이지에 해당하는 날짜
-        val pageDate = pageDates[page]
-
-        // 해당 날짜의 작업 필터링
-        val dayTasks = remember(tasks, pageDate) {
-            tasks.filter { it.date == pageDate }
-        }
-
-        // 태스크 목록 표시
-        TaskList(
-            modifier.fillMaxSize(),
-            tasks = dayTasks,
-            onToggleTodo = onToggleTodo,
-            onDeleteTask = onDeleteTask
-        )
+    // 페이지 변경 시 호출
+    LaunchedEffect(pagerState.currentPage) {
+        val newDate = weekDates[pagerState.currentPage]
+        onDateChanged(newDate)
     }
 }
