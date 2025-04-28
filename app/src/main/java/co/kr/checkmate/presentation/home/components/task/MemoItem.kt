@@ -1,6 +1,7 @@
 package co.kr.checkmate.presentation.home.components.task
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,14 +21,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.domain.model.Task
+import org.threeten.bp.LocalDate
 
 @Composable
 fun MemoItem(
+    modifier: Modifier = Modifier,
     memo: Task.Memo,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
@@ -72,16 +75,16 @@ fun MemoItem(
     }
 }
 
+@Preview(showBackground = true)
 @Composable
-private fun Box(
-    modifier: Modifier = Modifier,
-    contentAlignment: Alignment = Alignment.Center,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.Box(
-        modifier = modifier,
-        contentAlignment = contentAlignment
-    ) {
-        content()
-    }
+fun MemoItemPreview() {
+    MemoItem(
+        memo = Task.Memo(
+            id = 1,
+            title = "메모 제목",
+            content = "메모 내용입니다.",
+            date = LocalDate.of(2023, 1, 1)
+        ),
+        onDelete = {},
+    )
 }

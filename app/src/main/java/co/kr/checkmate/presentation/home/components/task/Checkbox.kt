@@ -15,13 +15,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 @Composable
 fun Checkbox(
+    modifier: Modifier = Modifier,
     checked: Boolean,
     onCheckedChange: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
@@ -33,7 +34,9 @@ fun Checkbox(
             )
             .border(
                 width = 2.dp,
-                color = if (checked) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                color = if (checked) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline.copy(
+                    alpha = 0.5f
+                ),
                 shape = CircleShape
             )
             .clickable { onCheckedChange() },
@@ -48,4 +51,22 @@ fun Checkbox(
             )
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CheckboxPreview1() {
+    Checkbox(
+        checked = false,
+        onCheckedChange = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun CheckboxPreview2() {
+    Checkbox(
+        checked = true,
+        onCheckedChange = {}
+    )
 }
