@@ -29,34 +29,9 @@ class HomeViewModel(
 
     override fun onEvent(event: HomeViewEvent) {
         when (event) {
-            is HomeViewEvent.OnChangeSelectDate -> {
-                setState { copy(selectedDate = event.date) }
-                loadTasks(event.date)
-            }
-
-            is HomeViewEvent.OnToggleTodo -> {
-                viewModelScope.launch {
-                    try {
-                        toggleTodoUseCase(event.todoId)
-                        // 상태 갱신을 위해 현재 선택된 날짜의 데이터를 다시 로드
-                        loadTasks(state.selectedDate)
-                    } catch (e: Exception) {
-                        postSideEffect(HomeSideEffect.ShowSnackbar("할 일 상태 변경에 실패했습니다."))
-                    }
-                }
-            }
-
-            is HomeViewEvent.OnDeleteTask -> {
-                viewModelScope.launch {
-                    try {
-                        deleteTaskUseCase(event.taskId)
-                        postSideEffect(HomeSideEffect.ShowSnackbar("항목이 삭제되었습니다."))
-                    } catch (e: Exception) {
-                        postSideEffect(HomeSideEffect.ShowSnackbar("삭제에 실패했습니다."))
-                    }
-                }
-            }
-
+            is HomeViewEvent.OnChangeSelectDate -> handleChangeSelectDate(event)
+            is HomeViewEvent.OnToggleTodo -> handleToggleTodo(event)
+            is HomeViewEvent.OnDeleteTask -> handleDeleteTask(event)
             is HomeViewEvent.OnClickCalendarIcon -> postSideEffect(HomeSideEffect.NavigateToCalendar)
             is HomeViewEvent.OnExpandFab -> setState { copy(isFabExpanded = true) }
             is HomeViewEvent.OnCollapseFab -> setState { copy(isFabExpanded = false) }
@@ -69,10 +44,35 @@ class HomeViewModel(
             is HomeViewEvent.OnChangeTodoDate -> setState { copy(selectedDate = event.date) }
             is HomeViewEvent.OnCreateTodo -> saveTodo(event.title)
             is HomeViewEvent.OnClickMoveTodosToToday -> openDialog(HomeDialogTag.MoveTodos)
-            is HomeViewEvent.OnConfirmMoveTodosToToday -> {
-                closeDialog()
-                moveTodosToToday()
-            }
+            is HomeViewEvent.OnConfirmMoveTodosToToday -> handleConfirmMoveTodosToToday()
+        }
+    }
+
+    private fun handleChangeSelectDate(event: HomeViewEvent.OnChangeSelectDate) {
+        setState { copy(selectedDate = event.date) }
+        loadTasks(event.date)
+    }
+
+    private fun handleToggleTodo(
+        event: HomeViewEvent.OnToggleTodo
+    ) = viewModelScope.launch {
+        try {
+            toggleTodoUseCase(event.todoId)
+            // 상태 갱신을 위해 현재 선택된 날짜의 데이터를 다시 로드
+            loadTasks(state.selectedDate)
+        } catch (e: Exception) {
+            postSideEffect(HomeSideEffect.ShowSnackbar("할 일 상태 변경에 실패했습니다."))
+        }
+    }
+
+    private fun handleDeleteTask(
+        event: HomeViewEvent.OnDeleteTask
+    ) = viewModelScope.launch {
+        try {
+            deleteTaskUseCase(event.taskId)
+            postSideEffect(HomeSideEffect.ShowSnackbar("항목이 삭제되었습니다."))
+        } catch (e: Exception) {
+            postSideEffect(HomeSideEffect.ShowSnackbar("삭제에 실패했습니다."))
         }
     }
 
@@ -141,30 +141,33 @@ class HomeViewModel(
         }
     }
 
-    private fun moveTodosToToday() {
-        viewModelScope.launch {
-            setState { copy(isLoading = true) }
-            try {
-                // 현재 선택된 날짜의 미완료 할 일들만 가져옴
-                val uncompletedTodos = state.tasks
-                    .filterIsInstance<Task.Todo>()
-                    .filter { !it.isCompleted }
+    private fun handleConfirmMoveTodosToToday() {
+        closeDialog()
+        moveTodosToToday()
+    }
 
-                // 오늘 날짜로 TD 옮기기
-                uncompletedTodos.forEach { todo ->
-                    val updatedTodo = todo.copy(date = LocalDate.now())
-                    updateTodoUseCase(updatedTodo)
-                }
+    private fun moveTodosToToday() = viewModelScope.launch {
+        setState { copy(isLoading = true) }
+        try {
+            // 현재 선택된 날짜의 미완료 할 일들만 가져옴
+            val uncompletedTodos = state.tasks
+                .filterIsInstance<Task.Todo>()
+                .filter { !it.isCompleted }
 
-                // 성공 메시지
-                postSideEffect(HomeSideEffect.ShowSnackbar("미완료 할 일을 오늘로 이동했습니다."))
-                // 오늘 날짜로 변경
-                onEvent(HomeViewEvent.OnChangeTodoDate(LocalDate.now()))
-            } catch (e: Exception) {
-                postSideEffect(HomeSideEffect.ShowSnackbar("이동에 실패했습니다."))
-            } finally {
-                setState { copy(isLoading = false) }
+            // 오늘 날짜로 TD 옮기기
+            uncompletedTodos.forEach { todo ->
+                val updatedTodo = todo.copy(date = LocalDate.now())
+                updateTodoUseCase(updatedTodo)
             }
+
+            // 성공 메시지
+            postSideEffect(HomeSideEffect.ShowSnackbar("미완료 할 일을 오늘로 이동했습니다."))
+            // 오늘 날짜로 변경
+            onEvent(HomeViewEvent.OnChangeTodoDate(LocalDate.now()))
+        } catch (e: Exception) {
+            postSideEffect(HomeSideEffect.ShowSnackbar("이동에 실패했습니다."))
+        } finally {
+            setState { copy(isLoading = false) }
         }
     }
 
