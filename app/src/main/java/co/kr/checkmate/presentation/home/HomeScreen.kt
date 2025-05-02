@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import co.kr.checkmate.presentation.home.components.bottomsheet.MemoBottomSheet
@@ -149,7 +150,8 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 ) {
-                    val yearMonth = state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy. MM월"))
+                    val yearMonth =
+                        state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy. MM월"))
                     Text(
                         text = yearMonth,
                         style = MaterialTheme.typography.labelLarge,
@@ -169,7 +171,7 @@ fun HomeScreen(
                         )
 
                         // 오늘 날짜인 경우 "Today" 표시
-                        if (state.selectedDate.isEqual(LocalDate.now())) {
+                        if (state.isSelectedDateToday) {
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Today",
@@ -211,4 +213,17 @@ fun HomeScreen(
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun HomeScreenPreview() {
+    val snackBarHostState = remember { SnackbarHostState() }
+    HomeScreen(
+        state = HomeState(
+            selectedDate = LocalDate.of(2025, 1, 1)
+        ),
+        onEvent = {},
+        snackBarHostState = snackBarHostState,
+    )
 }

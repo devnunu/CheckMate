@@ -11,8 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.domain.model.Task
+import org.threeten.bp.LocalDate
 
 @Composable
 fun TaskList(
@@ -52,6 +54,7 @@ fun TaskList(
                             onDelete = { onDeleteTask(task.id) }
                         )
                     }
+
                     is Task.Memo -> {
                         MemoItem(
                             memo = task,
@@ -62,4 +65,28 @@ fun TaskList(
             }
         }
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun TaskListPreview() {
+    TaskList(
+        tasks = listOf(
+            Task.Todo(
+                id = 1,
+                title = "Todo Item",
+                date = LocalDate.of(2023, 1, 1),
+                isCompleted = false
+            ),
+            Task.Memo(
+                id = 1,
+                title = "메모 제목",
+                content = "메모 내용입니다.",
+                date = LocalDate.of(2023, 1, 1)
+            )
+        ),
+        onToggleTodo = {},
+        onDeleteTask = {},
+    )
+
 }
