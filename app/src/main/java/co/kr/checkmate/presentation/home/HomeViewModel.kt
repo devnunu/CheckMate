@@ -7,6 +7,7 @@ import co.kr.checkmate.domain.usecase.AddTodoUseCase
 import co.kr.checkmate.domain.usecase.DeleteTaskUseCase
 import co.kr.checkmate.domain.usecase.GetTasksUseCase
 import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
+import co.kr.checkmate.domain.usecase.UpdateTodoUseCase
 import co.kr.checkmate.ui.base.BaseViewModel
 import kotlinx.coroutines.launch
 import org.threeten.bp.LocalDate
@@ -16,7 +17,8 @@ class HomeViewModel(
     private val toggleTodoUseCase: ToggleTodoUseCase,
     private val deleteTaskUseCase: DeleteTaskUseCase,
     private val addMemoUseCase: AddMemoUseCase,
-    private val addTodoUseCase: AddTodoUseCase
+    private val addTodoUseCase: AddTodoUseCase,
+    private val updateTodoUseCase: UpdateTodoUseCase
 ) : BaseViewModel<HomeState, HomeViewEvent, HomeSideEffect>(
     initialState = HomeState()
 ) {
@@ -55,40 +57,22 @@ class HomeViewModel(
                 }
             }
 
-            is HomeViewEvent.OnClickCalendarIcon -> {
-                postSideEffect(HomeSideEffect.NavigateToCalendar)
-            }
-
-            is HomeViewEvent.OnExpandFab -> {
-                setState { copy(isFabExpanded = true) }
-            }
-
-            is HomeViewEvent.OnCollapseFab -> {
-                setState { copy(isFabExpanded = false) }
-            }
-
-            is HomeViewEvent.OnClickAddTodoBtn -> {
-                openBottomSheet(HomeBottomSheetTag.Todo)
-            }
-
-            is HomeViewEvent.OnClickAddMemoBtn -> {
-                openBottomSheet(HomeBottomSheetTag.Memo)
-            }
-
-            is HomeViewEvent.OnClickCloseBottomSheet -> {
-                closeBottomSheet()
-            }
-
-            is HomeViewEvent.OnChangeMemoDate -> {
-                setState { copy(selectedDate = event.date) }
-            }
+            is HomeViewEvent.OnClickCalendarIcon -> postSideEffect(HomeSideEffect.NavigateToCalendar)
+            is HomeViewEvent.OnExpandFab -> setState { copy(isFabExpanded = true) }
+            is HomeViewEvent.OnCollapseFab -> setState { copy(isFabExpanded = false) }
+            is HomeViewEvent.OnClickAddTodoBtn -> openBottomSheet(HomeBottomSheetTag.Todo)
+            is HomeViewEvent.OnClickAddMemoBtn -> openBottomSheet(HomeBottomSheetTag.Memo)
+            is HomeViewEvent.OnClickCloseBottomSheet -> closeBottomSheet()
+            is HomeViewEvent.OnClickCloseDialog -> closeDialog()
+            is HomeViewEvent.OnChangeMemoDate -> setState { copy(selectedDate = event.date) }
             is HomeViewEvent.OnCreateMemo -> saveMemo(event.title, event.content)
-
-            is HomeViewEvent.OnChangeTodoDate -> {
-                setState { copy(selectedDate = event.date) }
-            }
-
+            is HomeViewEvent.OnChangeTodoDate -> setState { copy(selectedDate = event.date) }
             is HomeViewEvent.OnCreateTodo -> saveTodo(event.title)
+            is HomeViewEvent.OnClickMoveTodosToToday -> openDialog(HomeDialogTag.MoveTodos)
+            is HomeViewEvent.OnConfirmMoveTodosToToday -> {
+                closeDialog()
+                moveTodosToToday()
+            }
         }
     }
 
@@ -157,6 +141,33 @@ class HomeViewModel(
         }
     }
 
+    private fun moveTodosToToday() {
+        viewModelScope.launch {
+            setState { copy(isLoading = true) }
+            try {
+                // 현재 선택된 날짜의 미완료 할 일들만 가져옴
+                val uncompletedTodos = state.tasks
+                    .filterIsInstance<Task.Todo>()
+                    .filter { !it.isCompleted }
+
+                // 오늘 날짜로 TD 옮기기
+                uncompletedTodos.forEach { todo ->
+                    val updatedTodo = todo.copy(date = LocalDate.now())
+                    updateTodoUseCase(updatedTodo)
+                }
+
+                // 성공 메시지
+                postSideEffect(HomeSideEffect.ShowSnackbar("미완료 할 일을 오늘로 이동했습니다."))
+                // 오늘 날짜로 변경
+                onEvent(HomeViewEvent.OnChangeTodoDate(LocalDate.now()))
+            } catch (e: Exception) {
+                postSideEffect(HomeSideEffect.ShowSnackbar("이동에 실패했습니다."))
+            } finally {
+                setState { copy(isLoading = false) }
+            }
+        }
+    }
+
     /**
      * Modal
      * */
@@ -166,5 +177,13 @@ class HomeViewModel(
 
     private fun closeBottomSheet() {
         setState { copy(bottomSheetState = bottomSheetState.close()) }
+    }
+
+    private fun openDialog(tag: HomeDialogTag) {
+        setState { copy(dialogState = dialogState.open(tag)) }
+    }
+
+    private fun closeDialog() {
+        setState { copy(dialogState = dialogState.close()) }
     }
 }

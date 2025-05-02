@@ -13,6 +13,10 @@ sealed interface HomeBottomSheetTag {
     data object Memo : HomeBottomSheetTag
 }
 
+sealed interface HomeDialogTag {
+    data object MoveTodos : HomeDialogTag
+}
+
 sealed interface HomeViewEvent : ViewEvent {
     data class OnChangeSelectDate(val date: LocalDate) : HomeViewEvent
     data class OnToggleTodo(val todoId: Long) : HomeViewEvent
@@ -25,6 +29,7 @@ sealed interface HomeViewEvent : ViewEvent {
 
     // modal
     data object OnClickCloseBottomSheet : HomeViewEvent
+    data object OnClickCloseDialog : HomeViewEvent
 
     // memo
     data class OnChangeMemoDate(val date: LocalDate) : HomeViewEvent
@@ -33,6 +38,10 @@ sealed interface HomeViewEvent : ViewEvent {
     // td
     data class OnChangeTodoDate(val date: LocalDate) : HomeViewEvent
     data class OnCreateTodo(val title: String) : HomeViewEvent
+
+    // move TD
+    data object OnClickMoveTodosToToday : HomeViewEvent
+    data object OnConfirmMoveTodosToToday : HomeViewEvent
 }
 
 sealed interface HomeSideEffect : SideEffect {
@@ -49,7 +58,9 @@ data class HomeState(
     val error: String? = null,
     // modal
     val bottomSheetState: ModalState<HomeBottomSheetTag> =
-        ModalState.Closed(HomeBottomSheetTag.None)
+        ModalState.Closed(HomeBottomSheetTag.None),
+    val dialogState: ModalState<HomeDialogTag> =
+        ModalState.Closed(HomeDialogTag.MoveTodos)
 ) : ViewState {
 
     val isSelectedDateToday: Boolean

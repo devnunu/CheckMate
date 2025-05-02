@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -21,6 +23,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -36,6 +39,7 @@ import co.kr.checkmate.presentation.home.components.bottomsheet.TodoBottomSheet
 import co.kr.checkmate.presentation.home.components.fab.ExpandableFab
 import co.kr.checkmate.presentation.home.components.pager.TaskPager
 import co.kr.checkmate.ui.components.BottomSheetWrapper
+import co.kr.checkmate.ui.components.PopUpWrapper
 import co.kr.checkmate.ui.ext.collectSideEffect
 import co.kr.checkmate.ui.navigation.NavRoute
 import co.kr.checkmate.ui.theme.blue10
@@ -99,6 +103,38 @@ fun HomeScreen(
         }
     }
 
+    PopUpWrapper(
+        dialogState = state.dialogState
+    ) {tag->
+        when(tag) {
+            is HomeDialogTag.MoveTodos-> {
+                AlertDialog(
+                    onDismissRequest = {
+                        onEvent(HomeViewEvent.OnClickCloseBottomSheet) // 기존 닫기 이벤트 재활용
+                    },
+                    title = { Text("할 일 이동") },
+                    text = { Text("체크되지 않은 TODO를 오늘날짜로 옮기시겠습니까?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = { onEvent(HomeViewEvent.OnConfirmMoveTodosToToday) }
+                        ) {
+                            Text("네")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                onEvent(HomeViewEvent.OnClickCloseDialog) // 기존 닫기 이벤트 재활용
+                            }
+                        ) {
+                            Text("아니오")
+                        }
+                    }
+                )
+            }
+        }
+    }
+
     // 홈 화면
     Scaffold(
         topBar = {
@@ -144,23 +180,15 @@ fun HomeScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // HomeScreen.kt의 날짜 표시 부분 수정
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                // 날짜 표시 부분 수정
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val yearMonth =
-                        state.selectedDate.format(DateTimeFormatter.ofPattern("yyyy. MM월"))
-                    Text(
-                        text = yearMonth,
-                        style = MaterialTheme.typography.labelLarge,
-                        textAlign = TextAlign.Start,
-                        color = blue10,
-                    )
-
                     Row(
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
                         val date = state.selectedDate.format(DateTimeFormatter.ofPattern("dd일.E"))
                         Text(
@@ -183,6 +211,19 @@ fun HomeScreen(
                                         shape = RoundedCornerShape(4.dp)
                                     )
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // 오늘이 아닌 날짜에서만 '오늘로 이동' 버튼 노출
+                    if (!state.isSelectedDateToday) {
+                        IconButton(
+                            onClick = { onEvent(HomeViewEvent.OnClickMoveTodosToToday) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Redo, // 적절한 아이콘으로 변경 필요
+                                contentDescription = "할 일을 오늘로 이동",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -211,6 +252,7 @@ fun HomeScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
             }
+
         }
     }
 }

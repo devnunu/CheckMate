@@ -42,6 +42,6 @@ val appModule = module {
     factory { UpdateMemoUseCase(get()) }
 
     // ViewModels
-    viewModel { HomeViewModel(get(), get(), get(), get(), get()) }
+    viewModel { HomeViewModel(get(), get(), get(), get(), get(), get()) }
     viewModel { CalendarViewModel() }
 }
