@@ -17,19 +17,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import co.kr.checkmate.ui.theme.gray80
 
 @Composable
 fun PreviousWeekButton(
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val color = if (enabled) MaterialTheme.colorScheme.primary else gray80
     Row(
         modifier = Modifier
             .background(
-                color = MaterialTheme.colorScheme.primary,
+                color = color,
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(horizontal = 4.dp, vertical = 2.dp)
-            .clickable { onClick() },
+            .clickable { if (enabled) onClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -45,22 +48,25 @@ fun PreviousWeekButton(
 @Composable
 fun PreviousWeekButtonPreview() {
     PreviousWeekButton(
+        enabled = true,
         onClick = {}
     )
 }
 
 @Composable
 fun PostWeekButton(
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
+    val color = if (enabled) MaterialTheme.colorScheme.primary else gray80
     Row(
         modifier = Modifier
             .background(
-                color = MaterialTheme.colorScheme.primary,
+                color = color,
                 shape = RoundedCornerShape(8.dp)
             )
             .padding(horizontal = 4.dp, vertical = 2.dp)
-            .clickable { onClick() },
+            .clickable { if (enabled) onClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -76,6 +82,7 @@ fun PostWeekButton(
 @Composable
 fun PostWeekButtonPreview() {
     PostWeekButton(
+        enabled = true,
         onClick = {}
     )
 }

@@ -82,6 +82,7 @@ fun TopDateSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             PreviousWeekButton(
+                enabled = pagerState.currentPage == 0,
                 onClick = {
                     // 저번주 일요일로 이동
                     val previousWeekSunday = currentWeekMonday.minusDays(1)
@@ -120,6 +121,7 @@ fun TopDateSection(
             )
 
             PostWeekButton(
+                enabled = pagerState.currentPage == 6,
                 onClick = {
                     // 다음주 월요일로 이동
                     val nextWeekMonday = currentWeekMonday.plusDays(7)
