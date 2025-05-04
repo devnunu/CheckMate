@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Redo
@@ -99,7 +100,7 @@ fun HomeScreen(
         weekDates.indexOfFirst { it.isEqual(state.selectedDate) }.takeIf { it >= 0 } ?: 0
     }
 
-    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+    val pagerState = rememberPagerState(
         initialPage = initialPageIndex,
         pageCount = { 7 }
     )
@@ -228,36 +229,32 @@ fun HomeScreen(
                     weekDates = weekDates
                 )
                 Box(modifier = modifier.weight(1f)) {
-                    val tasks = state.tasks
                     HorizontalPager(
                         state = pagerState,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     ) { page ->
                         val pageDate = weekDates[page]
-                        val dayTasks = remember(tasks, pageDate) {
-                            tasks.filter { it.date == pageDate }
-                        }
+                        val dayTasks = state.weekTasks[pageDate] ?: emptyList()
 
-                        if (tasks.isEmpty()) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "등록된 항목이 없습니다",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
+                        if (dayTasks.isEmpty()) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "등록된 항목이 없습니다",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         } else {
                             TaskList(
                                 modifier = Modifier.fillMaxSize(),
                                 tasks = dayTasks,
                                 onToggleTodo = { todoId -> onEvent(HomeViewEvent.OnToggleTodo(todoId)) },
-                                onDeleteTask = { taskId ->
-                                    onEvent(HomeViewEvent.OnDeleteTask(taskId))
-                                }
+                                onDeleteTask = { taskId -> onEvent(HomeViewEvent.OnDeleteTask(taskId)) },
+                                onLongClickTodo = { todo -> onEvent(HomeViewEvent.OnLongClickTodo(todo)) } // 추가
                             )
                         }
                     }

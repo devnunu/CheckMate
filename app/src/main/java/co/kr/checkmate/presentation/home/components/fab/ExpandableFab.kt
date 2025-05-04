@@ -46,8 +46,6 @@ fun ExpandableFab(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(bottom = 72.dp, end = 4.dp)
             ) {
-
-
                 FabMenuItem(
                     icon = Icons.Default.Check,
                     label = "투두",

@@ -6,6 +6,7 @@ import org.threeten.bp.LocalDate
 
 interface TaskRepository {
     fun getTasksByDate(date: LocalDate): Flow<List<Task>>
+    fun getTasksByWeek(startDate: LocalDate, endDate: LocalDate): Flow<Map<LocalDate, List<Task>>>
     fun getAllTasks(): Flow<List<Task>>
     suspend fun addTodo(todo: Task.Todo): Long
     suspend fun addMemo(memo: Task.Memo): Long

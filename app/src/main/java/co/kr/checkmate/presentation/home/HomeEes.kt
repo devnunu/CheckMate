@@ -9,7 +9,7 @@ import org.threeten.bp.LocalDate
 
 sealed interface HomeBottomSheetTag {
     data object None : HomeBottomSheetTag
-    data object Todo : HomeBottomSheetTag
+    data class Todo(val isEditMode: Boolean = false, val selectedTodo: Task.Todo? = null) : HomeBottomSheetTag
     data object Memo : HomeBottomSheetTag
 }
 
@@ -24,8 +24,8 @@ sealed interface HomeViewEvent : ViewEvent {
     data object OnClickCalendarIcon : HomeViewEvent
     data object OnExpandFab : HomeViewEvent
     data object OnCollapseFab : HomeViewEvent
-    data object OnClickAddTodoBtn : HomeViewEvent
     data object OnClickAddMemoBtn : HomeViewEvent
+    data object OnClickAddTodoBtn : HomeViewEvent
 
     // modal
     data object OnClickCloseBottomSheet : HomeViewEvent
@@ -33,11 +33,14 @@ sealed interface HomeViewEvent : ViewEvent {
 
     // memo
     data class OnChangeMemoDate(val date: LocalDate) : HomeViewEvent
-    data class OnCreateMemo(val title: String, val content: String) : HomeViewEvent
+    data class OnCreateMemo(val title: String, val content: String, val date: LocalDate? = null) : HomeViewEvent
 
     // td
     data class OnChangeTodoDate(val date: LocalDate) : HomeViewEvent
-    data class OnCreateTodo(val title: String) : HomeViewEvent
+    data class OnCreateTodo(val title: String, val date: LocalDate? = null) : HomeViewEvent
+    data class OnLongClickTodo(val todo: Task.Todo) : HomeViewEvent
+    data class OnClickDeleteTodo(val todoId: Long) : HomeViewEvent  // data class로 변경
+    data class OnUpdateTodo(val todoId: Long, val title: String) : HomeViewEvent  // todoId 추가
 
     // move TD
     data object OnClickMoveTodosToToday : HomeViewEvent
@@ -53,7 +56,7 @@ data class HomeState(
     val isLoading: Boolean = false,
 
     val selectedDate: LocalDate = LocalDate.now(),
-    val tasks: List<Task> = emptyList(),
+    val weekTasks: Map<LocalDate, List<Task>> = emptyMap(),
     val isFabExpanded: Boolean = false,
     val error: String? = null,
     // modal
@@ -62,7 +65,6 @@ data class HomeState(
     val dialogState: ModalState<HomeDialogTag> =
         ModalState.Closed(HomeDialogTag.MoveTodos)
 ) : ViewState {
-
-    val isSelectedDateToday: Boolean
-        get() = selectedDate.isEqual(LocalDate.now())
+    val tasks: List<Task>
+        get() = weekTasks[selectedDate] ?: emptyList()
 }

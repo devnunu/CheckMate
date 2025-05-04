@@ -16,6 +16,9 @@ interface TodoDao {
     @Query("SELECT * FROM todos ORDER BY date DESC")
     fun getAllTodos(): Flow<List<TaskEntity.TodoEntity>>
 
+    @Query("SELECT * FROM todos WHERE date BETWEEN :startDate AND :endDate ORDER BY id DESC")
+    fun getTodosByDateRange(startDate: Long, endDate: Long): Flow<List<TaskEntity.TodoEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(todo: TaskEntity.TodoEntity): Long
 

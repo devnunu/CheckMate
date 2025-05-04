@@ -19,6 +19,7 @@ fun TaskList(
     tasks: List<Task>,
     onToggleTodo: (Long) -> Unit,
     onDeleteTask: (Long) -> Unit,
+    onLongClickTodo: (Task.Todo) -> Unit
 ) {
     LazyColumn(
         modifier = modifier
@@ -30,7 +31,8 @@ fun TaskList(
                     TodoItem(
                         todo = task,
                         onToggle = { onToggleTodo(task.id) },
-                        onDelete = { onDeleteTask(task.id) }
+                        onDelete = { onDeleteTask(task.id) },
+                        onLongClick = { onLongClickTodo(task) }
                     )
                 }
 
@@ -42,7 +44,8 @@ fun TaskList(
                 }
             }
             Divider(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 color = gray80,
                 thickness = 1.dp
@@ -71,6 +74,7 @@ private fun TaskListPreview() {
         ),
         onToggleTodo = {},
         onDeleteTask = {},
+        onLongClickTodo = {}
     )
 
 }

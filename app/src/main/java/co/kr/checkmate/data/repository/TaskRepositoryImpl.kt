@@ -33,6 +33,44 @@ class TaskRepositoryImpl(
         }
     }
 
+    override fun getTasksByWeek(startDate: LocalDate, endDate: LocalDate): Flow<Map<LocalDate, List<Task>>> {
+        val startTimestamp = startDate.toEpochDay()
+        val endTimestamp = endDate.toEpochDay()
+
+        return combine(
+            todoDao.getTodosByDateRange(startTimestamp, endTimestamp),
+            memoDao.getMemosByDateRange(startTimestamp, endTimestamp)
+        ) { todos, memos ->
+            val tasksByDate = mutableMapOf<LocalDate, MutableList<Task>>()
+
+            // 먼저 날짜별 빈 리스트 초기화
+            var currentDate = startDate
+            while (!currentDate.isAfter(endDate)) {
+                tasksByDate[currentDate] = mutableListOf()
+                currentDate = currentDate.plusDays(1)
+            }
+
+            // 할 일 추가
+            todos.forEach { todoEntity ->
+                val date = LocalDate.ofEpochDay(todoEntity.date)
+                tasksByDate[date]?.add(todoEntity.toDomain())
+            }
+
+            // 메모 추가
+            memos.forEach { memoEntity ->
+                val date = LocalDate.ofEpochDay(memoEntity.date)
+                tasksByDate[date]?.add(memoEntity.toDomain())
+            }
+
+            // 각 날짜별로 정렬
+            tasksByDate.forEach { (_, tasks) ->
+                tasks.sortByDescending { it.id }
+            }
+
+            tasksByDate
+        }
+    }
+
     override fun getAllTasks(): Flow<List<Task>> {
         return combine(
             todoDao.getAllTodos(),

@@ -16,6 +16,9 @@ interface MemoDao {
     @Query("SELECT * FROM memos ORDER BY date DESC")
     fun getAllMemos(): Flow<List<TaskEntity.MemoEntity>>
 
+    @Query("SELECT * FROM memos WHERE date BETWEEN :startDate AND :endDate ORDER BY id DESC")
+    fun getMemosByDateRange(startDate: Long, endDate: Long): Flow<List<TaskEntity.MemoEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(memo: TaskEntity.MemoEntity): Long
 

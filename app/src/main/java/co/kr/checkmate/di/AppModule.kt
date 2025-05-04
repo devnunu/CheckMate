@@ -8,6 +8,7 @@ import co.kr.checkmate.domain.usecase.AddMemoUseCase
 import co.kr.checkmate.domain.usecase.AddTodoUseCase
 import co.kr.checkmate.domain.usecase.DeleteTaskUseCase
 import co.kr.checkmate.domain.usecase.GetTasksUseCase
+import co.kr.checkmate.domain.usecase.GetWeekTasksUseCase
 import co.kr.checkmate.domain.usecase.ToggleTodoUseCase
 import co.kr.checkmate.domain.usecase.UpdateMemoUseCase
 import co.kr.checkmate.domain.usecase.UpdateTodoUseCase
@@ -36,6 +37,7 @@ val appModule = module {
     factory { GetTasksUseCase(get()) }
     factory { AddTodoUseCase(get()) }
     factory { AddMemoUseCase(get()) }
+    factory { GetWeekTasksUseCase(get()) }
     factory { ToggleTodoUseCase(get()) }
     factory { DeleteTaskUseCase(get()) }
     factory { UpdateTodoUseCase(get()) }
