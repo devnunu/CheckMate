@@ -18,12 +18,12 @@ import org.threeten.bp.LocalDate
 
 @Composable
 fun TaskPager(
+    modifier: Modifier = Modifier,
     initialDate: LocalDate,
     tasks: List<Task>,
     onDateChanged: (LocalDate) -> Unit,
     onToggleTodo: (Long) -> Unit,
     onDeleteTask: (Long) -> Unit,
-    modifier: Modifier = Modifier
 ) {
     // 현재 날짜의 해당 주 월요일 구하기
     var currentWeekMonday by remember {
