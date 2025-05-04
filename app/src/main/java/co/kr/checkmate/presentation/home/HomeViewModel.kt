@@ -32,7 +32,7 @@ class HomeViewModel(
         when (event) {
             is HomeViewEvent.OnChangeSelectDate -> handleChangeSelectDate(event)
             is HomeViewEvent.OnToggleTodo -> handleToggleTodo(event)
-            is HomeViewEvent.OnDeleteTask -> handleDeleteTask(event)
+            is HomeViewEvent.OnSwipeDeleteTodo -> handleDeleteTask(event)
             is HomeViewEvent.OnClickCalendarIcon -> postSideEffect(HomeSideEffect.NavigateToCalendar)
             is HomeViewEvent.OnExpandFab -> setState { copy(isFabExpanded = true) }
             is HomeViewEvent.OnCollapseFab -> setState { copy(isFabExpanded = false) }
@@ -42,7 +42,7 @@ class HomeViewModel(
             is HomeViewEvent.OnClickCloseDialog -> closeDialog()
             is HomeViewEvent.OnCreateMemo -> saveMemo(event.title, event.content, event.date)
             is HomeViewEvent.OnCreateTodo -> saveTodo(event.title, event.date)
-            is HomeViewEvent.OnLongClickTodo -> handleLongClickTodo(event)
+            is HomeViewEvent.OnSwipeEditTodo -> handleSwipeEditTodo(event)
             is HomeViewEvent.OnUpdateTodo -> updateTodo(event.todoId, event.title)
             is HomeViewEvent.OnClickDeleteTodo -> handleClickDeleteTodo(event.todoId)
             is HomeViewEvent.OnClickMoveTodosToToday -> openDialog(HomeDialogTag.MoveTodos)
@@ -73,7 +73,7 @@ class HomeViewModel(
     }
 
     private fun handleDeleteTask(
-        event: HomeViewEvent.OnDeleteTask
+        event: HomeViewEvent.OnSwipeDeleteTodo
     ) = viewModelScope.launch {
         try {
             deleteTaskUseCase(event.taskId)
@@ -88,12 +88,12 @@ class HomeViewModel(
         openBottomSheet(HomeBottomSheetTag.Todo(isEditMode = false))
     }
 
-    private fun handleLongClickTodo(event: HomeViewEvent.OnLongClickTodo) {
+    private fun handleSwipeEditTodo(event: HomeViewEvent.OnSwipeEditTodo) {
         openBottomSheet(HomeBottomSheetTag.Todo(isEditMode = true, selectedTodo = event.todo))
     }
 
     private fun handleClickDeleteTodo(todoId: Long) {
-        handleDeleteTask(HomeViewEvent.OnDeleteTask(todoId))
+        handleDeleteTask(HomeViewEvent.OnSwipeDeleteTodo(todoId))
         closeBottomSheet()
     }
 

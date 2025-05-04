@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,29 +65,6 @@ fun TodoBottomSheet(
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f)
             )
-
-            if (isEditMode) {
-                // 수정 모드일 때 삭제 버튼 추가
-                Button(
-                    onClick = {
-                        selectedTodo?.let { todo ->
-                            onEvent(HomeViewEvent.OnClickDeleteTodo(todo.id))
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "삭제"
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("삭제")
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-            }
 
             Button(
                 onClick = {

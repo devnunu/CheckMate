@@ -20,7 +20,7 @@ sealed interface HomeDialogTag {
 sealed interface HomeViewEvent : ViewEvent {
     data class OnChangeSelectDate(val date: LocalDate) : HomeViewEvent
     data class OnToggleTodo(val todoId: Long) : HomeViewEvent
-    data class OnDeleteTask(val taskId: Long) : HomeViewEvent
+    data class OnSwipeDeleteTodo(val taskId: Long) : HomeViewEvent
     data object OnClickCalendarIcon : HomeViewEvent
     data object OnExpandFab : HomeViewEvent
     data object OnCollapseFab : HomeViewEvent
@@ -36,7 +36,7 @@ sealed interface HomeViewEvent : ViewEvent {
 
     // td
     data class OnCreateTodo(val title: String, val date: LocalDate? = null) : HomeViewEvent
-    data class OnLongClickTodo(val todo: Task.Todo) : HomeViewEvent
+    data class OnSwipeEditTodo(val todo: Task.Todo) : HomeViewEvent
     data class OnClickDeleteTodo(val todoId: Long) : HomeViewEvent  // data class로 변경
     data class OnUpdateTodo(val todoId: Long, val title: String) : HomeViewEvent  // todoId 추가
 

@@ -82,7 +82,8 @@ fun Modifier.clickableRipple(
     val interactionSource = remember { MutableInteractionSource() }
 
     if (onLongClick != null) {
-        this.indication(
+        this
+            .indication(
                 interactionSource = interactionSource,
                 indication = ripple(bounded = bounded, color = rippleColor ?: Color.Unspecified)
             )

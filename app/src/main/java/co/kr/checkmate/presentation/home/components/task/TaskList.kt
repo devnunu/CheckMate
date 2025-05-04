@@ -1,5 +1,6 @@
 package co.kr.checkmate.presentation.home.components.task
 
+import TodoItem
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,8 +19,8 @@ fun TaskList(
     modifier: Modifier = Modifier,
     tasks: List<Task>,
     onToggleTodo: (Long) -> Unit,
-    onDeleteTask: (Long) -> Unit,
-    onLongClickTodo: (Task.Todo) -> Unit
+    onDeleteTodo: (Long) -> Unit,
+    onEditTodo: (Task.Todo) -> Unit
 ) {
     LazyColumn(
         modifier = modifier
@@ -30,15 +31,16 @@ fun TaskList(
                 is Task.Todo -> {
                     TodoItem(
                         todo = task,
-                        onToggle = { onToggleTodo(task.id) },
-                        onLongClick = { onLongClickTodo(task) }
+                        onToggle = { todoId -> onToggleTodo(todoId) },
+                        onDelete = { todoId -> onDeleteTodo(todoId) },
+                        onEdit = { todo -> onEditTodo(todo) },
                     )
                 }
 
                 is Task.Memo -> {
                     MemoItem(
                         memo = task,
-                        onDelete = { onDeleteTask(task.id) }
+                        onDelete = { onDeleteTodo(task.id) }
                     )
                 }
             }
@@ -72,8 +74,8 @@ private fun TaskListPreview() {
             )
         ),
         onToggleTodo = {},
-        onDeleteTask = {},
-        onLongClickTodo = {}
+        onDeleteTodo = {},
+        onEditTodo = {}
     )
 
 }

@@ -253,8 +253,8 @@ fun HomeScreen(
                                 modifier = Modifier.fillMaxSize(),
                                 tasks = dayTasks,
                                 onToggleTodo = { todoId -> onEvent(HomeViewEvent.OnToggleTodo(todoId)) },
-                                onDeleteTask = { taskId -> onEvent(HomeViewEvent.OnDeleteTask(taskId)) },
-                                onLongClickTodo = { todo -> onEvent(HomeViewEvent.OnLongClickTodo(todo)) } // 추가
+                                onDeleteTodo = { taskId -> onEvent(HomeViewEvent.OnSwipeDeleteTodo(taskId)) },
+                                onEditTodo = { todo -> onEvent(HomeViewEvent.OnSwipeEditTodo(todo)) } // 추가
                             )
                         }
                     }
