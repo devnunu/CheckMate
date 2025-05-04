@@ -14,6 +14,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.domain.model.Task
+import co.kr.checkmate.ui.ext.clickableRipple
 import org.threeten.bp.LocalDate
 
 @Composable
@@ -27,7 +28,10 @@ fun TodoItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .clickableRipple(bounded = true) {
+                onToggle()
+            }
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(

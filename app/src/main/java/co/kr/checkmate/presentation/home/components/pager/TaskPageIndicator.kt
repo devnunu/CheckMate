@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -20,17 +19,14 @@ fun PageIndicator(
     weekDates: List<LocalDate>
 ) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp),
+        modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter
     ) {
         // 2dp 높이의 divider 스타일 7등분 indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(2.dp)
+                .height(3.dp)
         ) {
             // 7등분 (월~일)
             weekDates.forEachIndexed { index, _ ->
@@ -38,7 +34,7 @@ fun PageIndicator(
                 Box(
                     modifier = Modifier
                         .weight(1f) // 동일한 비율로 7등분
-                        .height(2.dp)
+                        .height(3.dp)
                         .background(
                             color = if (pagerState.currentPage == index)
                                 MaterialTheme.colorScheme.primary // 선택된 페이지
