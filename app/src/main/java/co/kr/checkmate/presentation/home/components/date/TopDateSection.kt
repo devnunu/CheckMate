@@ -2,34 +2,26 @@ package co.kr.checkmate.presentation.home.components.date
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.PagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import co.kr.checkmate.ui.theme.blue10
+import co.kr.checkmate.ui.theme.gray80
 import kotlinx.coroutines.launch
 import org.threeten.bp.DayOfWeek
 import org.threeten.bp.LocalDate
@@ -90,48 +82,33 @@ fun TopDateSection(
         }
 
         Column(
-            horizontalAlignment = Alignment.End
+            verticalArrangement = Arrangement.Bottom
         ) {
             Row(
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 왼쪽 화살표 - 월요일에만 표시
-                if (pagerState.currentPage == 0) {
-                    ElevatedButton(
-                        onClick = {
-                            // 저번주 일요일로 이동
-                            val previousWeekSunday = currentWeekMonday.minusDays(1)
-                            onDateChanged(previousWeekSunday)
-                            // 현재 주 갱신
-                            onUpdateCurrentWeekMonday(previousWeekSunday.with(DayOfWeek.MONDAY))
-                            // 페이저 페이지를 6(일요일)로 설정
-                            coroutineScope.launch {
-                                pagerState.scrollToPage(6)
-                            }
-                        },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.elevatedButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowLeft,
-                            contentDescription = "이전 주",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                PreviousWeekButton(
+                    onClick = {
+                        // 저번주 일요일로 이동
+                        val previousWeekSunday = currentWeekMonday.minusDays(1)
+                        onDateChanged(previousWeekSunday)
+                        // 현재 주 갱신
+                        onUpdateCurrentWeekMonday(previousWeekSunday.with(DayOfWeek.MONDAY))
+                        // 페이저 페이지를 6(일요일)로 설정
+                        coroutineScope.launch {
+                            pagerState.scrollToPage(6)
+                        }
+                    },
+                )
 
                 // "오늘" 버튼
-                if (!isCurrentWeekTodayWeek) {
-                    Text(
-                        modifier = Modifier
-                            .padding(horizontal = 8.dp)
-                            .clickable {
+                val color =
+                    if (!isCurrentWeekTodayWeek) MaterialTheme.colorScheme.primary else gray80
+                Text(
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .clickable {
+                            if (!isCurrentWeekTodayWeek) {
                                 // 오늘이 있는 주로 이동
                                 onUpdateCurrentWeekMonday(todayWeekMonday)
                                 onDateChanged(todayDate)
@@ -140,45 +117,28 @@ fun TopDateSection(
                                     val todayIndex = todayDate.dayOfWeek.value - 1
                                     pagerState.scrollToPage(todayIndex)
                                 }
-                            },
-                        text = "오늘",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            textDecoration = TextDecoration.Underline
-                        ),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-
-                // 오른쪽 화살표 - 일요일에만 표시
-                if (pagerState.currentPage == 6) {
-                    ElevatedButton(
-                        onClick = {
-                            // 다음주 월요일로 이동
-                            val nextWeekMonday = currentWeekMonday.plusDays(7)
-                            onDateChanged(nextWeekMonday)
-                            // 현재 주 갱신
-                            onUpdateCurrentWeekMonday(nextWeekMonday)
-                            // 페이저 페이지를 0(월요일)로 설정
-                            coroutineScope.launch {
-                                pagerState.scrollToPage(0)
                             }
                         },
-                        shape = CircleShape,
-                        colors = ButtonDefaults.elevatedButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowRight,
-                            contentDescription = "다음 주",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                    text = "오늘",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        textDecoration = TextDecoration.Underline
+                    ),
+                    color = color,
+                )
+
+                PostWeekButton(
+                    onClick = {
+                        // 다음주 월요일로 이동
+                        val nextWeekMonday = currentWeekMonday.plusDays(7)
+                        onDateChanged(nextWeekMonday)
+                        // 현재 주 갱신
+                        onUpdateCurrentWeekMonday(nextWeekMonday)
+                        // 페이저 페이지를 0(월요일)로 설정
+                        coroutineScope.launch {
+                            pagerState.scrollToPage(0)
+                        }
+                    },
+                )
             }
         }
     }
