@@ -45,6 +45,11 @@ fun TaskPager(
         pageCount = { 7 }
     )
 
+    // 페이지 변경 시 호출
+    LaunchedEffect(pagerState.currentPage) {
+        val newDate = weekDates[pagerState.currentPage]
+        onDateChanged(newDate)
+    }
     Box(modifier = modifier) {
         // 페이저
         HorizontalPager(
@@ -74,12 +79,5 @@ fun TaskPager(
             }
 
         )
-
-    }
-
-    // 페이지 변경 시 호출
-    LaunchedEffect(pagerState.currentPage) {
-        val newDate = weekDates[pagerState.currentPage]
-        onDateChanged(newDate)
     }
 }
