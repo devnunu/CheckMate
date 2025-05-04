@@ -25,13 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import co.kr.checkmate.presentation.home.HomeViewEvent
 
 @Composable
 fun ExpandableFab(
     isExpanded: Boolean,
-    onExpandChange: (Boolean) -> Unit,
-    onAddTodo: () -> Unit,
-    onAddMemo: () -> Unit
+    onEvent: (HomeViewEvent) -> Unit
 ) {
     Box(
         contentAlignment = Alignment.BottomEnd
@@ -47,12 +46,14 @@ fun ExpandableFab(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.padding(bottom = 72.dp, end = 4.dp)
             ) {
+
+
                 FabMenuItem(
                     icon = Icons.Default.Check,
                     label = "투두",
                     onClick = {
-                        onAddTodo()
-                        onExpandChange(false)
+                        onEvent(HomeViewEvent.OnClickAddTodoBtn)
+                        onEvent(HomeViewEvent.OnCollapseFab)
                     }
                 )
 
@@ -60,8 +61,8 @@ fun ExpandableFab(
                     icon = Icons.Default.Edit,
                     label = "메모",
                     onClick = {
-                        onAddMemo()
-                        onExpandChange(false)
+                        onEvent(HomeViewEvent.OnClickAddMemoBtn)
+                        onEvent(HomeViewEvent.OnCollapseFab)
                     }
                 )
             }
@@ -69,7 +70,14 @@ fun ExpandableFab(
 
         // 메인 FAB
         FloatingActionButton(
-            onClick = { onExpandChange(!isExpanded) },
+            onClick = {
+                val expanded = !isExpanded
+                if (expanded) {
+                    onEvent(HomeViewEvent.OnExpandFab)
+                } else {
+                    onEvent(HomeViewEvent.OnCollapseFab)
+                }
+            },
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = Color.White,

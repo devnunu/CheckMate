@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -165,6 +167,19 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("CheckMate") },
                 actions = {
+                    // 오늘이 아닌 날짜에서만 '오늘로 이동' 버튼 노출
+                    val isSelectedDateToday = state.selectedDate.isEqual(LocalDate.now())
+                    if (!isSelectedDateToday) {
+                        IconButton(
+                            onClick = { onEvent(HomeViewEvent.OnClickMoveTodosToToday) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Redo,
+                                contentDescription = "할 일을 오늘로 이동",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     // 캘린더 아이콘 추가
                     IconButton(onClick = { onEvent(HomeViewEvent.OnClickCalendarIcon) }) {
                         Icon(
@@ -178,19 +193,7 @@ fun HomeScreen(
         floatingActionButton = {
             ExpandableFab(
                 isExpanded = state.isFabExpanded,
-                onExpandChange = { expanded ->
-                    if (expanded) {
-                        onEvent(HomeViewEvent.OnExpandFab)
-                    } else {
-                        onEvent(HomeViewEvent.OnCollapseFab)
-                    }
-                },
-                onAddTodo = {
-                    onEvent(HomeViewEvent.OnClickAddTodoBtn)
-                },
-                onAddMemo = {
-                    onEvent(HomeViewEvent.OnClickAddMemoBtn)
-                }
+                onEvent = onEvent
             )
         },
         snackbarHost = { SnackbarHost(snackBarHostState) }
@@ -205,10 +208,9 @@ fun HomeScreen(
             ) {
                 TopDateSection(
                     pagerState = pagerState,
-                    selectedDate = state.selectedDate,
-                    todayDate = todayDate,
                     currentWeekMonday = currentWeekMonday,
-                    onClickMoveTodosToToday = { onEvent(HomeViewEvent.OnClickMoveTodosToToday) },
+                    todayDate = todayDate,
+                    selectedDate = state.selectedDate,
                     onDateChanged = { date ->
                         onEvent(HomeViewEvent.OnChangeSelectDate(date))
                     },

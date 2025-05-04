@@ -16,11 +16,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Redo
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,7 +41,6 @@ fun TopDateSection(
     currentWeekMonday: LocalDate,
     todayDate: LocalDate,
     selectedDate: LocalDate,
-    onClickMoveTodosToToday: () -> Unit,
     onDateChanged: (LocalDate) -> Unit,
     onUpdateCurrentWeekMonday: (LocalDate) -> Unit
 ) {
@@ -64,7 +61,7 @@ fun TopDateSection(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Bottom,
             modifier = Modifier.weight(1f)
         ) {
             val date = selectedDate.format(DateTimeFormatter.ofPattern("dd일.E"))
@@ -74,20 +71,20 @@ fun TopDateSection(
                 textAlign = TextAlign.Start,
                 color = blue10,
             )
-
             // 오늘 날짜인 경우 "Today" 표시
             if (isSelectedDateToday) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Today",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier
+                        .padding(bottom = 4.dp)
                         .background(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(4.dp)
                         )
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                    text = "Today",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -95,21 +92,8 @@ fun TopDateSection(
         Column(
             horizontalAlignment = Alignment.End
         ) {
-            // 오늘이 아닌 날짜에서만 '오늘로 이동' 버튼 노출
-            if (!isSelectedDateToday) {
-                IconButton(
-                    onClick = { onClickMoveTodosToToday() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Redo,
-                        contentDescription = "할 일을 오늘로 이동",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-            }
-
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Bottom
             ) {
                 // 왼쪽 화살표 - 월요일에만 표시
                 if (pagerState.currentPage == 0) {
