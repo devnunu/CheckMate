@@ -2,7 +2,10 @@ package co.kr.checkmate.ui.ext
 
 import android.annotation.SuppressLint
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +18,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -71,20 +75,55 @@ fun Modifier.clickableRipple(
     bounded: Boolean = false,
     throttleDuration: Long = DEFAULT_THROTTLE_DURATION,
     rippleColor: Color? = null,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
 ): Modifier = composed {
     var lastEventMilli by remember { mutableStateOf(0L) }
-    this.clickable(
-        interactionSource = remember { MutableInteractionSource() },
-        indication = ripple(bounded = bounded, color = rippleColor ?: Color.Unspecified),
-        onClick = {
-            val now = System.currentTimeMillis()
-            if (now - lastEventMilli >= throttleDuration) {
-                lastEventMilli = now
-                onClick()
+    val interactionSource = remember { MutableInteractionSource() }
+
+    if (onLongClick != null) {
+        this.indication(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = bounded, color = rippleColor ?: Color.Unspecified)
+            )
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onLongPress = {
+                        onLongClick()
+                    },
+                    onTap = {
+                        val now = System.currentTimeMillis()
+                        if (now - lastEventMilli >= throttleDuration) {
+                            lastEventMilli = now
+                            onClick()
+                        }
+                    },
+                    onPress = {
+                        // 눌렀을 때 ripple 효과를 위한 이벤트 발생
+                        val press = PressInteraction.Press(it)
+                        interactionSource.emit(press)
+
+                        // 누르고 있는 동안 대기
+                        tryAwaitRelease()
+
+                        // 손을 뗐을 때 ripple 효과 종료
+                        interactionSource.emit(PressInteraction.Release(press))
+                    }
+                )
             }
-        }
-    )
+    } else {
+        this.clickable(
+            interactionSource = interactionSource,
+            indication = ripple(bounded = bounded, color = rippleColor ?: Color.Unspecified),
+            onClick = {
+                val now = System.currentTimeMillis()
+                if (now - lastEventMilli >= throttleDuration) {
+                    lastEventMilli = now
+                    onClick()
+                }
+            }
+        )
+    }
 }
 
 fun Modifier.clickableNonIndication(

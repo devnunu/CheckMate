@@ -1,6 +1,5 @@
 package co.kr.checkmate.presentation.home.components.task
 
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,7 +10,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -24,21 +22,17 @@ fun TodoItem(
     modifier: Modifier = Modifier,
     todo: Task.Todo,
     onToggle: () -> Unit,
-    onDelete: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     // 완료 여부에 관계없이 항상 표시
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickableRipple(bounded = true) {
-                onToggle()
-            }
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onLongPress = { onLongClick() }
-                )
-            }
+            .clickableRipple(
+                bounded = true,
+                onLongClick = { onLongClick() },
+                onClick = { onToggle() }
+            )
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -73,7 +67,6 @@ private fun TodoItemPreview() {
             isCompleted = false
         ),
         onToggle = {},
-        onDelete = {},
         onLongClick = {}
     )
 }

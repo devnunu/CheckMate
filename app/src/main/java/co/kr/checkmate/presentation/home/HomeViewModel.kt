@@ -40,9 +40,7 @@ class HomeViewModel(
             is HomeViewEvent.OnClickAddMemoBtn -> openBottomSheet(HomeBottomSheetTag.Memo)
             is HomeViewEvent.OnClickCloseBottomSheet -> closeBottomSheet()
             is HomeViewEvent.OnClickCloseDialog -> closeDialog()
-            is HomeViewEvent.OnChangeMemoDate -> setState { copy(selectedDate = event.date) }
             is HomeViewEvent.OnCreateMemo -> saveMemo(event.title, event.content, event.date)
-            is HomeViewEvent.OnChangeTodoDate -> setState { copy(selectedDate = event.date) }
             is HomeViewEvent.OnCreateTodo -> saveTodo(event.title, event.date)
             is HomeViewEvent.OnLongClickTodo -> handleLongClickTodo(event)
             is HomeViewEvent.OnUpdateTodo -> updateTodo(event.todoId, event.title)
@@ -227,7 +225,7 @@ class HomeViewModel(
             // 성공 메시지
             postSideEffect(HomeSideEffect.ShowSnackbar("미완료 할 일을 오늘로 이동했습니다."))
             // 오늘 날짜로 변경
-            onEvent(HomeViewEvent.OnChangeTodoDate(LocalDate.now()))
+            setState { copy(selectedDate = LocalDate.now()) }
         } catch (e: Exception) {
             postSideEffect(HomeSideEffect.ShowSnackbar("이동에 실패했습니다."))
         } finally {

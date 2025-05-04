@@ -31,7 +31,6 @@ fun TaskList(
                     TodoItem(
                         todo = task,
                         onToggle = { onToggleTodo(task.id) },
-                        onDelete = { onDeleteTask(task.id) },
                         onLongClick = { onLongClickTodo(task) }
                     )
                 }

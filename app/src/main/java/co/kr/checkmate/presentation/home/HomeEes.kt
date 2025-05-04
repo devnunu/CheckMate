@@ -32,11 +32,9 @@ sealed interface HomeViewEvent : ViewEvent {
     data object OnClickCloseDialog : HomeViewEvent
 
     // memo
-    data class OnChangeMemoDate(val date: LocalDate) : HomeViewEvent
     data class OnCreateMemo(val title: String, val content: String, val date: LocalDate? = null) : HomeViewEvent
 
     // td
-    data class OnChangeTodoDate(val date: LocalDate) : HomeViewEvent
     data class OnCreateTodo(val title: String, val date: LocalDate? = null) : HomeViewEvent
     data class OnLongClickTodo(val todo: Task.Todo) : HomeViewEvent
     data class OnClickDeleteTodo(val todoId: Long) : HomeViewEvent  // data class로 변경
@@ -54,7 +52,6 @@ sealed interface HomeSideEffect : SideEffect {
 
 data class HomeState(
     val isLoading: Boolean = false,
-
     val selectedDate: LocalDate = LocalDate.now(),
     val weekTasks: Map<LocalDate, List<Task>> = emptyMap(),
     val isFabExpanded: Boolean = false,
@@ -65,6 +62,8 @@ data class HomeState(
     val dialogState: ModalState<HomeDialogTag> =
         ModalState.Closed(HomeDialogTag.MoveTodos)
 ) : ViewState {
+
     val tasks: List<Task>
         get() = weekTasks[selectedDate] ?: emptyList()
+
 }
