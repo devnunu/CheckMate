@@ -40,20 +40,19 @@ import org.threeten.bp.format.DateTimeFormatter
 @Composable
 fun TopDateSection(
     pagerState: PagerState,
-    isSelectedToday: Boolean,
-    selectedDate: LocalDate,
     currentWeekMonday: LocalDate,
+    todayDate: LocalDate,
+    selectedDate: LocalDate,
     onClickMoveTodosToToday: () -> Unit,
     onDateChanged: (LocalDate) -> Unit,
     onUpdateCurrentWeekMonday: (LocalDate) -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
 
-    // 오늘 날짜
-    val today = LocalDate.now()
+    val isSelectedDateToday = selectedDate.isEqual(LocalDate.now())
 
     // 오늘 날짜의 주 월요일
-    val todayWeekMonday = today.with(DayOfWeek.MONDAY)
+    val todayWeekMonday = todayDate.with(DayOfWeek.MONDAY)
 
     // 현재 표시 중인 주가 오늘이 속한 주인지 확인
     val isCurrentWeekTodayWeek = currentWeekMonday.isEqual(todayWeekMonday)
@@ -77,7 +76,7 @@ fun TopDateSection(
             )
 
             // 오늘 날짜인 경우 "Today" 표시
-            if (isSelectedToday) {
+            if (isSelectedDateToday) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Today",
@@ -97,7 +96,7 @@ fun TopDateSection(
             horizontalAlignment = Alignment.End
         ) {
             // 오늘이 아닌 날짜에서만 '오늘로 이동' 버튼 노출
-            if (!isSelectedToday) {
+            if (!isSelectedDateToday) {
                 IconButton(
                     onClick = { onClickMoveTodosToToday() }
                 ) {
@@ -151,10 +150,10 @@ fun TopDateSection(
                             .clickable {
                                 // 오늘이 있는 주로 이동
                                 onUpdateCurrentWeekMonday(todayWeekMonday)
-                                onDateChanged(today)
+                                onDateChanged(todayDate)
                                 coroutineScope.launch {
                                     // 오늘의 인덱스 계산 (월요일부터 0, 일요일은 6)
-                                    val todayIndex = today.dayOfWeek.value - 1
+                                    val todayIndex = todayDate.dayOfWeek.value - 1
                                     pagerState.scrollToPage(todayIndex)
                                 }
                             },

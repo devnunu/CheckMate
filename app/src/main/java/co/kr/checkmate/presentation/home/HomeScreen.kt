@@ -64,6 +64,7 @@ fun HomeScreen(
         modifier = modifier,
         state = viewModel.stateFlow.collectAsState().value,
         onEvent = viewModel::onEvent,
+        todayDate = LocalDate.now(),
         snackBarHostState = snackBarHostState
     )
 }
@@ -74,6 +75,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     state: HomeState,
     onEvent: (HomeViewEvent) -> Unit,
+    todayDate: LocalDate,
     snackBarHostState: SnackbarHostState
 ) {
     // 현재 날짜의 해당 주 월요일 구하기
@@ -203,8 +205,8 @@ fun HomeScreen(
             ) {
                 TopDateSection(
                     pagerState = pagerState,
-                    isSelectedToday = state.isSelectedDateToday,
                     selectedDate = state.selectedDate,
+                    todayDate = todayDate,
                     currentWeekMonday = currentWeekMonday,
                     onClickMoveTodosToToday = { onEvent(HomeViewEvent.OnClickMoveTodosToToday) },
                     onDateChanged = { date ->
@@ -257,6 +259,7 @@ private fun HomeScreenPreview() {
             selectedDate = LocalDate.of(2025, 1, 1)
         ),
         onEvent = {},
+        todayDate = LocalDate.of(2025, 1, 1),
         snackBarHostState = snackBarHostState,
     )
 }
