@@ -1,0 +1,60 @@
+# .github/workflows/ai-pr-review.yml
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  # opened: PR 최초 생성 시
+  # synchronize: 새로운 커밋이 push될 때
+
+permissions:
+  contents: read
+  pull-requests: write  # PR에 코멘트를 달기 위해 필요
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 전체 히스토리를 가져와서 변경사항 분석
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install openai requests PyGithub
+
+      - name: Get changed files
+        id: changed-files
+        run: |
+          # PR에서 변경된 파일 목록 가져오기
+          git diff --name-only origin/${{ github.base_ref }} > changed_files.txt
+          echo "changed_files=$(cat changed_files.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+
+      - name: Get file changes
+        id: file-changes
+        run: |
+          # 변경된 파일들의 실제 diff 내용 가져오기
+          git diff origin/${{ github.base_ref }} > changes.diff
+          echo "Generated diff file"
+
+      - name: Run AI Analysis
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          REPO_NAME: ${{ github.repository }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          python .github/scripts/ai_pr_analyzer.py
+
+      - name: Clean up
+        run: |
+          rm -f changed_files.txt changes.diff
