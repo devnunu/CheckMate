@@ -29,7 +29,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -143,8 +142,8 @@ fun HomeScreen(
                     onDismissRequest = {
                         onEvent(HomeViewEvent.OnClickCloseBottomSheet) // 기존 닫기 이벤트 재활용
                     },
-                    title = { Text("할 일 이동") },
-                    text = { Text("체크되지 않은 TODO를 오늘날짜로 옮기시겠습니까?") },
+                    title = { Text("할 일 이동 시키기") },
+                    text = { Text("체크되지 않은 TODO를 오늘 날짜로 옮기시겠습니까?") },
                     confirmButton = {
                         TextButton(
                             onClick = { onEvent(HomeViewEvent.OnConfirmMoveTodosToToday) }
