@@ -1,5 +1,6 @@
 # .github/scripts/universal_line_analyzer.py
 import os
+import re
 import openai
 from github import Github
 from typing import List, Dict
@@ -24,7 +25,6 @@ class UniversalLineAnalyzer:
             readme = self.repo.get_contents("README.md")
             readme_content = readme.decoded_content.decode('utf-8')
 
-            import re
             convention_match = re.search(
                 r'## AI 리뷰 가이드라인.*?(?=##|$)',
                 readme_content,
@@ -229,4 +229,126 @@ class UniversalLineAnalyzer:
             total_static = sum(linter_counts.values())
             print(f"✅ 총 {len(comments)}개 코멘트 (정적분석: {total_static}, AI: {ai_count})가 포함된 리뷰가 생성되었습니다: {review.html_url}")
 
-        except Exception as e
+        except Exception as e:
+            print(f"❌ 리뷰 생성 실패: {e}")
+            self.create_fallback_comment(all_issues)
+
+    def create_fallback_comment(self, all_issues: Dict[str, List[Dict]]):
+        """Review API 실패 시 일반 코멘트로 대체"""
+        comment_body = "🤖 **범용 코드 품질 검수 결과**\n\n"
+
+        for file_path, issues in all_issues.items():
+            if issues:
+                language = self.universal_analyzer.detect_language(file_path)
+                comment_body += f"\n### 📁 {file_path} ({language})\n"
+
+                for issue in issues:
+                    category = issue.get('category', 'unknown')
+                    if category in ['ktlint', 'swiftlint', 'eslint']:
+                        source_emoji = '🔧'
+                    else:
+                        source_emoji = '🤖'
+
+                    priority_emoji = {'P2': '🟡', 'P3': '🔵'}
+                    comment_body += f"- **Line {issue['line']}** {priority_emoji.get(issue['priority'], '📝')} [{issue['priority']}] {source_emoji} {issue['category']}: {issue['message']}\n"
+
+        try:
+            self.pr.create_issue_comment(comment_body)
+            print("✅ 대체 코멘트가 생성되었습니다.")
+        except Exception as e:
+            print(f"❌ 대체 코멘트 생성도 실패: {e}")
+
+    def run_universal_analysis(self):
+        """범용 분석 전체 프로세스 실행"""
+        print("🔍 범용 코드 품질 검수를 시작합니다...")
+
+        # 분석 설정 요약
+        analysis_summary = self.universal_analyzer.get_analysis_summary()
+        print(f"📋 {analysis_summary}")
+
+        # 컨벤션 정보 읽기
+        conventions = self.read_conventions()
+
+        # 지원하는 파일 확장자
+        supported_extensions = self.universal_analyzer.get_supported_extensions()
+
+        # PR의 변경된 파일들 가져오기
+        files = self.pr.get_files()
+        all_issues = {}
+        analyzed_count = 0
+        skipped_count = 0
+
+        for file in files:
+            # 삭제된 파일 건너뛰기
+            if file.status == 'removed':
+                continue
+
+            # 지원하는 파일 확장자 확인
+            is_supported = any(file.filename.endswith(ext) for ext in supported_extensions)
+            if not is_supported:
+                skipped_count += 1
+                continue
+
+            print(f"📝 분석 중: {file.filename}")
+            analyzed_count += 1
+
+            try:
+                # 현재 파일 내용 가져오기
+                content = self.repo.get_contents(file.filename, ref=self.pr.head.sha)
+                file_content = content.decoded_content.decode('utf-8')
+
+                # 파일별 이슈 분석
+                issues = self.analyze_file_for_issues(
+                    file.filename,
+                    file_content,
+                    file.patch or "",
+                    conventions
+                )
+
+                if issues:
+                    all_issues[file.filename] = issues
+
+                    # 이슈 분류별 개수 계산
+                    static_issues = [i for i in issues if i.get('category') in ['ktlint', 'swiftlint', 'eslint']]
+                    ai_issues = [i for i in issues if i.get('category') not in ['ktlint', 'swiftlint', 'eslint']]
+
+                    print(f"  ⚠️ 총 {len(issues)}개 이슈 (정적분석: {len(static_issues)}, AI: {len(ai_issues)})")
+                else:
+                    print(f"  ✅ 이슈 없음")
+
+            except Exception as e:
+                print(f"  ❌ 분석 실패: {e}")
+                continue
+
+        # 결과 요약
+        print(f"\n📊 분석 완료: {analyzed_count}개 파일 분석, {skipped_count}개 파일 건너뛰기")
+
+        # 리뷰 코멘트 생성
+        if all_issues:
+            # 전체 이슈 통계
+            total_static = 0
+            total_ai = 0
+            linter_stats = {}
+
+            for issues in all_issues.values():
+                for issue in issues:
+                    category = issue.get('category', 'unknown')
+                    if category in ['ktlint', 'swiftlint', 'eslint']:
+                        total_static += 1
+                        linter_stats[category] = linter_stats.get(category, 0) + 1
+                    else:
+                        total_ai += 1
+
+            print(f"📈 검수 완료:")
+            for linter, count in linter_stats.items():
+                print(f"  🔧 {linter}: {count}개")
+            if total_ai > 0:
+                print(f"  🤖 AI 분석: {total_ai}개")
+
+            self.create_review_comments(all_issues)
+        else:
+            print("✅ 모든 분석 대상 파일이 품질 기준을 통과했습니다!")
+
+if __name__ == "__main__":
+    analyzer = UniversalLineAnalyzer()
+    analyzer.run_universal_analysis()
