@@ -41,7 +41,7 @@ class UniversalLineAnalyzer:
             return "컨벤션 정보를 읽을 수 없습니다."
 
     def analyze_file_for_issues(self, file_path: str, file_content: str, patch: str, conventions: str) -> List[Dict]:
-        """파일 분석 (정적 분석 + AI 분석)"""
+        """파일 분석 (AI 기반 린트 분석 + AI 고급 분석)"""
 
         language = self.universal_analyzer.detect_language(file_path)
         if not language:
@@ -50,11 +50,11 @@ class UniversalLineAnalyzer:
 
         all_issues = []
 
-        # 1. 정적 분석 (언어별 린터)
-        static_issues = self.universal_analyzer.analyze_file(file_path, file_content)
-        all_issues.extend(static_issues)
+        # 1. AI 기반 린트 분석 (설정 파일 기반)
+        lint_issues = self.universal_analyzer.analyze_file(file_path, file_content)
+        all_issues.extend(lint_issues)
 
-        # 2. AI 기반 고급 분석
+        # 2. AI 기반 고급 분석 (메모리 누수, 안티패턴 등)
         ai_issues = self.analyze_with_ai_advanced(file_path, file_content, patch, conventions, language)
         all_issues.extend(ai_issues)
 
@@ -326,7 +326,7 @@ class UniversalLineAnalyzer:
 
         comments = []
         linter_counts = {}  # 린터별 이슈 개수
-        ai_count = 0
+        advanced_count = 0
 
         for file_path, issues in filtered_issues.items():
             language = self.universal_analyzer.detect_language(file_path)
@@ -335,14 +335,14 @@ class UniversalLineAnalyzer:
                 # 이슈 출처 구분
                 category = issue.get('category', 'unknown')
 
-                if category in ['ktlint', 'swiftlint', 'eslint']:
+                if category in ['kotlinlint', 'swiftlint', 'eslint']:
                     linter_counts[category] = linter_counts.get(category, 0) + 1
-                    source_emoji = '🔧'
-                    source_text = category
-                else:
-                    ai_count += 1
                     source_emoji = '🤖'
-                    source_text = 'AI 분석'
+                    source_text = f'AI {category}'
+                else:
+                    advanced_count += 1
+                    source_emoji = '🧠'
+                    source_text = 'AI 고급분석'
 
                 # 우선순위별 이모지
                 priority_emoji = {'P2': '🟡', 'P3': '🔵'}
@@ -369,8 +369,8 @@ class UniversalLineAnalyzer:
                 comments=comments
             )
 
-            total_static = sum(linter_counts.values())
-            print(f"✅ 총 {len(comments)}개 새로운 라인별 코멘트 (정적분석: {total_static}, AI: {ai_count})가 생성되었습니다: {review.html_url}")
+            total_lint = sum(linter_counts.values())
+            print(f"✅ 총 {len(comments)}개 새로운 라인별 코멘트 (AI 린트: {total_lint}, 고급분석: {advanced_count})가 생성되었습니다: {review.html_url}")
 
         except Exception as e:
             print(f"❌ 라인별 리뷰 생성 실패: {e}")
@@ -549,10 +549,10 @@ class UniversalLineAnalyzer:
                     all_issues[file.filename] = issues
 
                     # 이슈 분류별 개수 계산
-                    static_issues = [i for i in issues if i.get('category') in ['ktlint', 'swiftlint', 'eslint']]
-                    ai_issues = [i for i in issues if i.get('category') not in ['ktlint', 'swiftlint', 'eslint']]
+                    lint_issues = [i for i in issues if i.get('category') in ['kotlinlint', 'swiftlint', 'eslint']]
+                    advanced_issues = [i for i in issues if i.get('category') not in ['kotlinlint', 'swiftlint', 'eslint']]
 
-                    print(f"  ⚠️ 총 {len(issues)}개 이슈 (정적분석: {len(static_issues)}, AI: {len(ai_issues)})")
+                    print(f"  ⚠️ 총 {len(issues)}개 이슈 (린트: {len(lint_issues)}, 고급분석: {len(advanced_issues)})")
                 else:
                     print(f"  ✅ 이슈 없음")
 
@@ -573,11 +573,11 @@ class UniversalLineAnalyzer:
             for issues in all_issues.values():
                 for issue in issues:
                     category = issue.get('category', 'unknown')
-                    if category in ['ktlint', 'swiftlint', 'eslint']:
-                        total_static += 1
+                    if category in ['kotlinlint', 'swiftlint', 'eslint']:
+                        total_lint += 1
                         linter_stats[category] = linter_stats.get(category, 0) + 1
                     else:
-                        total_ai += 1
+                        total_advanced += 1
 
             print(f"📈 검수 완료:")
             for linter, count in linter_stats.items():

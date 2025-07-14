@@ -1,23 +1,22 @@
-# .github/scripts/universal_line_analyzer.py
+# .github/scripts/ai_pr_analyzer.py
 import os
-import re
+import json
 import openai
 from github import Github
-from typing import List, Dict
-from universal_code_analyzer import UniversalCodeAnalyzer
+import re
 
-class UniversalLineAnalyzer:
+class PRAnalyzer:
     def __init__(self):
         self.openai_client = openai.OpenAI(api_key=os.environ['OPENAI_API_KEY'])
         self.github_client = Github(os.environ['GITHUB_TOKEN'])
         self.repo_name = os.environ['REPO_NAME']
         self.pr_number = int(os.environ['PR_NUMBER'])
+        self.pr_title = os.environ.get('PR_TITLE', '')
+        self.pr_body = os.environ.get('PR_BODY', '')
 
+        # GitHub repo 객체
         self.repo = self.github_client.get_repo(self.repo_name)
         self.pr = self.repo.get_pull(self.pr_number)
-
-        # 범용 코드 분석기 초기화
-        self.universal_analyzer = UniversalCodeAnalyzer(self.repo, self.pr)
 
     def read_conventions(self):
         """README에서 컨벤션 정보 읽기"""
@@ -25,6 +24,7 @@ class UniversalLineAnalyzer:
             readme = self.repo.get_contents("README.md")
             readme_content = readme.decoded_content.decode('utf-8')
 
+            # AI 리뷰 가이드라인 섹션 추출
             convention_match = re.search(
                 r'## AI 리뷰 가이드라인.*?(?=##|$)',
                 readme_content,
@@ -40,315 +40,167 @@ class UniversalLineAnalyzer:
             print(f"README 읽기 실패: {e}")
             return "컨벤션 정보를 읽을 수 없습니다."
 
-    def analyze_file_for_issues(self, file_path: str, file_content: str, patch: str, conventions: str) -> List[Dict]:
-        """파일 분석 (정적 분석 + AI 분석)"""
+    def get_changed_files_content(self):
+        """변경된 파일들의 내용과 diff 정보 가져오기"""
+        changed_files = []
 
-        language = self.universal_analyzer.detect_language(file_path)
-        if not language:
-            print(f"  ⚠️ 지원하지 않는 파일 형식: {file_path}")
-            return []
+        # PR의 모든 파일 변경사항 가져오기
+        files = self.pr.get_files()
 
-        all_issues = []
+        for file in files:
+            file_info = {
+                'filename': file.filename,
+                'status': file.status,  # added, modified, removed
+                'additions': file.additions,
+                'deletions': file.deletions,
+                'patch': file.patch if hasattr(file, 'patch') else None,
+                'content': None
+            }
 
-        # 1. 정적 분석 (언어별 린터)
-        static_issues = self.universal_analyzer.analyze_file(file_path, file_content)
-        all_issues.extend(static_issues)
+            # 삭제된 파일이 아닌 경우 현재 내용도 가져오기
+            if file.status != 'removed':
+                try:
+                    content = self.repo.get_contents(file.filename, ref=self.pr.head.sha)
+                    file_info['content'] = content.decoded_content.decode('utf-8')
+                except:
+                    file_info['content'] = "파일 내용을 읽을 수 없습니다."
 
-        # 2. AI 기반 고급 분석
-        ai_issues = self.analyze_with_ai_advanced(file_path, file_content, patch, conventions, language)
-        all_issues.extend(ai_issues)
+            changed_files.append(file_info)
 
-        return all_issues
+        return changed_files
 
-    def analyze_with_ai_advanced(self, file_path: str, file_content: str, patch: str, conventions: str, language: str) -> List[Dict]:
-        """AI 기반 고급 코드 품질 분석"""
+    def analyze_with_ai(self, changed_files, conventions):
+        """AI를 사용하여 PR 분석"""
 
-        # 언어별 특화 분석 포인트
-        language_specific_points = {
-            'kotlin': [
-                "Android 메모리 누수 (Handler, Listener 등)",
-                "코루틴 스코프 관리",
-                "Room 데이터베이스 쿼리 최적화",
-                "Compose 리컴포지션 최적화"
-            ],
-            'swift': [
-                "iOS 메모리 누수 (강한 순환 참조)",
-                "DispatchQueue 사용 최적화",
-                "Core Data 성능 문제",
-                "UIKit 생명주기 관리"
-            ],
-            'javascript': [
-                "메모리 누수 (이벤트 리스너, 클로저)",
-                "비동기 처리 최적화",
-                "DOM 조작 성능",
-                "번들 크기 최적화"
-            ]
-        }
-
-        specific_points = language_specific_points.get(language, [])
-
+        # 분석할 내용 준비
         analysis_prompt = f"""
-당신은 {language} 코드 리뷰 전문가입니다. 정적 분석 도구로는 찾기 어려운 고급 문제점을 분석해주세요.
+당신은 코드 리뷰 전문가입니다. 다음 PR을 분석하여 리뷰 템플릿을 생성해주세요.
 
-**파일:** {file_path}
-**언어:** {language}
-**팀 컨벤션:** {conventions}
+**PR 정보:**
+- 제목: {self.pr_title}
+- 설명: {self.pr_body}
 
-**{language} 특화 분석 포인트:**
-{chr(10).join(f'- {point}' for point in specific_points)}
+**팀 컨벤션:**
+{conventions}
 
-**파일 내용 (일부):**
-```{language}
-{file_content[:2000]}
-```
+**변경된 파일들:**
+"""
 
-**변경사항:**
-```diff
-{patch[:1500]}
-```
+        # 각 파일의 변경사항 추가
+        for file in changed_files:
+            analysis_prompt += f"\n### {file['filename']} ({file['status']})\n"
+            analysis_prompt += f"추가: {file['additions']}줄, 삭제: {file['deletions']}줄\n"
 
-**분석 대상:**
+            if file['patch']:
+                # diff가 너무 길면 자르기 (토큰 제한 고려)
+                patch = file['patch'][:3000] if len(file['patch']) > 3000 else file['patch']
+                analysis_prompt += f"```diff\n{patch}\n```\n"
 
-**P2 (중간 우선순위):**
-- 메모리 누수 위험
-- 성능 이슈 (O(n²) 알고리즘, 불필요한 연산)
-- 안티패턴 (God Object, 강한 결합)
-- 동시성/비동기 처리 문제
-- 보안 취약점
+        analysis_prompt += """
 
-**P3 (낮은 우선순위):**
-- 복잡한 로직 (순환 복잡도 높음)
-- 코드 중복
-- 매직 넘버/스트링
-- 과도한 매개변수
-- 네이밍 개선 여지
+**요청사항:**
+다음 형식으로 분석 결과를 작성해주세요:
 
-**응답 형식:**
-```json
-[
-  {{
-    "line": 줄번호,
-    "priority": "P2"|"P3",
-    "category": "메모리|성능|안티패턴|동시성|보안|복잡도|중복|네이밍",
-    "message": "구체적인 문제와 {language} 특화 개선방안",
-    "suggestion": "개선된 코드 예시"
-  }}
-]
-```
+## 🤖 AI PR 분석 결과
 
-변경된 부분만 분석하고, 실제 문제가 있을 때만 보고해주세요.
+### 📋 작업 개요
+[전체적인 변경사항의 목적과 의도를 요약해주세요]
+
+### 🔧 주요 변경사항
+[파일별/기능별 주요 변경사항을 요약해주세요]
+
+### ⚠️ 리뷰 집중 포인트
+[다음 태그를 사용하여 위험 가능성이 있는 부분을 표시해주세요]
+- 🔴 **[로직오류위험]** `파일명:라인` - 설명
+- 🟡 **[사이드이펙트]** `파일명:라인` - 설명
+- 🔵 **[성능저하]** `파일명:라인` - 설명
+- 🟠 **[보안취약]** `파일명:라인` - 설명
+- 🟣 **[호환성이슈]** `파일명:라인` - 설명
+- ⚫ **[데이터정합성]** `파일명:라인` - 설명
+
+중요하거나 위험할 가능성이 있는 변경사항만 선별해서 포함해주세요.
 """
 
         try:
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": f"{language} 전문 코드 리뷰어로서 정적 분석 도구가 놓치는 고급 문제를 찾아냅니다."},
+                    {"role": "system", "content": "당신은 안드로이드/iOS 개발에 전문적인 코드 리뷰어입니다. 실수 가능성이 높은 부분을 중심으로 정확하고 실용적인 분석을 제공합니다."},
                     {"role": "user", "content": analysis_prompt}
                 ],
-                max_tokens=1200,
-                temperature=0.1
+                max_tokens=2000,
+                temperature=0.3
             )
 
-            response_text = response.choices[0].message.content.strip()
-
-            import json
-            try:
-                issues = json.loads(response_text)
-                return issues if isinstance(issues, list) else []
-            except json.JSONDecodeError:
-                print(f"AI 분석 JSON 파싱 실패: {response_text[:200]}")
-                return []
+            return response.choices[0].message.content
 
         except Exception as e:
-            print(f"AI 분석 실패: {e}")
-            return []
+            return f"❌ AI 분석 중 오류가 발생했습니다: {str(e)}"
 
-    def create_review_comments(self, all_issues: Dict[str, List[Dict]]):
-        """GitHub Review API로 라인별 코멘트 생성"""
+    def minimize_previous_comments(self):
+        """이전 AI 분석 코멘트를 minimize 처리"""
+        comments = self.pr.get_issue_comments()
 
-        if not any(all_issues.values()):
-            print("발견된 이슈가 없습니다.")
-            return
+        for comment in comments:
+            # AI 봇이 작성한 코멘트 찾기
+            if (comment.user.login == 'github-actions[bot]' and
+                '🤖 AI PR 분석 결과' in comment.body):
 
-        comments = []
-        linter_counts = {}  # 린터별 이슈 개수
-        ai_count = 0
+                # 이전 코멘트 삭제 (또는 minimize 처리)
+                try:
+                    comment.delete()  # 완전 삭제
+                    print(f"이전 분석 코멘트 삭제: {comment.id}")
+                except Exception as e:
+                    # 삭제 권한이 없는 경우 minimize 처리
+                    try:
+                        updated_body = f"<!-- Minimized by new analysis -->\n<details>\n<summary>이전 분석 결과 (클릭하여 보기)</summary>\n\n{comment.body}\n</details>"
+                        comment.edit(updated_body)
+                        print(f"이전 코멘트 minimize 처리: {comment.id}")
+                    except Exception as e2:
+                        print(f"코멘트 처리 실패: {e2}")
 
-        for file_path, issues in all_issues.items():
-            language = self.universal_analyzer.detect_language(file_path)
+    def post_analysis_comment(self, analysis_result):
+        """분석 결과를 PR에 코멘트로 등록 (요약 코멘트 제거)"""
 
-            for issue in issues:
-                # 이슈 출처 구분
-                category = issue.get('category', 'unknown')
+        # 이전 코멘트들을 삭제/minimize 처리
+        self.minimize_previous_comments()
 
-                if category in ['ktlint', 'swiftlint', 'eslint']:
-                    linter_counts[category] = linter_counts.get(category, 0) + 1
-                    source_emoji = '🔧'
-                    source_text = category
-                else:
-                    ai_count += 1
-                    source_emoji = '🤖'
-                    source_text = 'AI 분석'
+        # 이제 전체 요약 코멘트를 생성하지 않음
+        # 라인별 코멘트만 universal_line_analyzer.py에서 생성
+        print("📝 PR 템플릿 분석 완료 - 라인별 분석과 함께 결과가 표시됩니다.")
+        return True
 
-                # 우선순위별 이모지
-                priority_emoji = {'P2': '🟡', 'P3': '🔵'}
+    def run_analysis(self):
+        """전체 분석 프로세스 실행"""
+        print("🚀 AI PR 분석을 시작합니다...")
 
-                comment_body = f"{priority_emoji.get(issue['priority'], '📝')} **[{issue['priority']}]** {source_emoji} **{source_text}**\n\n"
-                comment_body += f"**{issue['category']}**: {issue['message']}\n"
-
-                if issue.get('suggestion'):
-                    comment_body += f"\n**💡 개선 제안:**\n```{language}\n{issue['suggestion']}\n```"
-
-                comments.append({
-                    'path': file_path,
-                    'line': issue['line'],
-                    'body': comment_body
-                })
-
-        # GitHub Review 생성
-        try:
-            review_body = f"🤖 **범용 코드 품질 자동 검수 결과**\n\n"
-
-            # 린터별 이슈 개수 표시
-            for linter, count in linter_counts.items():
-                review_body += f"🔧 **{linter}**: {count}개 이슈\n"
-
-            if ai_count > 0:
-                review_body += f"🤖 **AI 고급 분석**: {ai_count}개 이슈\n"
-
-            review_body += f"\n**지원 언어:** {', '.join(self.universal_analyzer.linters.keys())}\n"
-            review_body += "검토 후 필요시 수정해주세요. 정적 분석 이슈는 IDE에서 자동 수정 가능합니다."
-
-            review = self.pr.create_review(
-                body=review_body,
-                event="COMMENT",
-                comments=comments
-            )
-
-            total_static = sum(linter_counts.values())
-            print(f"✅ 총 {len(comments)}개 코멘트 (정적분석: {total_static}, AI: {ai_count})가 포함된 리뷰가 생성되었습니다: {review.html_url}")
-
-        except Exception as e:
-            print(f"❌ 리뷰 생성 실패: {e}")
-            self.create_fallback_comment(all_issues)
-
-    def create_fallback_comment(self, all_issues: Dict[str, List[Dict]]):
-        """Review API 실패 시 일반 코멘트로 대체"""
-        comment_body = "🤖 **범용 코드 품질 검수 결과**\n\n"
-
-        for file_path, issues in all_issues.items():
-            if issues:
-                language = self.universal_analyzer.detect_language(file_path)
-                comment_body += f"\n### 📁 {file_path} ({language})\n"
-
-                for issue in issues:
-                    category = issue.get('category', 'unknown')
-                    if category in ['ktlint', 'swiftlint', 'eslint']:
-                        source_emoji = '🔧'
-                    else:
-                        source_emoji = '🤖'
-
-                    priority_emoji = {'P2': '🟡', 'P3': '🔵'}
-                    comment_body += f"- **Line {issue['line']}** {priority_emoji.get(issue['priority'], '📝')} [{issue['priority']}] {source_emoji} {issue['category']}: {issue['message']}\n"
-
-        try:
-            self.pr.create_issue_comment(comment_body)
-            print("✅ 대체 코멘트가 생성되었습니다.")
-        except Exception as e:
-            print(f"❌ 대체 코멘트 생성도 실패: {e}")
-
-    def run_universal_analysis(self):
-        """범용 분석 전체 프로세스 실행"""
-        print("🔍 범용 코드 품질 검수를 시작합니다...")
-
-        # 분석 설정 요약
-        analysis_summary = self.universal_analyzer.get_analysis_summary()
-        print(f"📋 {analysis_summary}")
-
-        # 컨벤션 정보 읽기
+        # 1. 컨벤션 정보 읽기
+        print("📖 컨벤션 정보를 읽는 중...")
         conventions = self.read_conventions()
 
-        # 지원하는 파일 확장자
-        supported_extensions = self.universal_analyzer.get_supported_extensions()
+        # 2. 변경된 파일 정보 가져오기
+        print("📁 변경된 파일 정보를 수집하는 중...")
+        changed_files = self.get_changed_files_content()
 
-        # PR의 변경된 파일들 가져오기
-        files = self.pr.get_files()
-        all_issues = {}
-        analyzed_count = 0
-        skipped_count = 0
+        if not changed_files:
+            print("❌ 변경된 파일이 없습니다.")
+            return
 
-        for file in files:
-            # 삭제된 파일 건너뛰기
-            if file.status == 'removed':
-                continue
+        print(f"📊 총 {len(changed_files)}개 파일이 변경되었습니다.")
 
-            # 지원하는 파일 확장자 확인
-            is_supported = any(file.filename.endswith(ext) for ext in supported_extensions)
-            if not is_supported:
-                skipped_count += 1
-                continue
+        # 3. AI 분석 실행
+        print("🤖 AI 분석을 실행하는 중...")
+        analysis_result = self.analyze_with_ai(changed_files, conventions)
 
-            print(f"📝 분석 중: {file.filename}")
-            analyzed_count += 1
+        # 4. 결과를 PR에 코멘트로 등록
+        print("💬 분석 결과를 PR에 등록하는 중...")
+        success = self.post_analysis_comment(analysis_result)
 
-            try:
-                # 현재 파일 내용 가져오기
-                content = self.repo.get_contents(file.filename, ref=self.pr.head.sha)
-                file_content = content.decoded_content.decode('utf-8')
-
-                # 파일별 이슈 분석
-                issues = self.analyze_file_for_issues(
-                    file.filename,
-                    file_content,
-                    file.patch or "",
-                    conventions
-                )
-
-                if issues:
-                    all_issues[file.filename] = issues
-
-                    # 이슈 분류별 개수 계산
-                    static_issues = [i for i in issues if i.get('category') in ['ktlint', 'swiftlint', 'eslint']]
-                    ai_issues = [i for i in issues if i.get('category') not in ['ktlint', 'swiftlint', 'eslint']]
-
-                    print(f"  ⚠️ 총 {len(issues)}개 이슈 (정적분석: {len(static_issues)}, AI: {len(ai_issues)})")
-                else:
-                    print(f"  ✅ 이슈 없음")
-
-            except Exception as e:
-                print(f"  ❌ 분석 실패: {e}")
-                continue
-
-        # 결과 요약
-        print(f"\n📊 분석 완료: {analyzed_count}개 파일 분석, {skipped_count}개 파일 건너뛰기")
-
-        # 리뷰 코멘트 생성
-        if all_issues:
-            # 전체 이슈 통계
-            total_static = 0
-            total_ai = 0
-            linter_stats = {}
-
-            for issues in all_issues.values():
-                for issue in issues:
-                    category = issue.get('category', 'unknown')
-                    if category in ['ktlint', 'swiftlint', 'eslint']:
-                        total_static += 1
-                        linter_stats[category] = linter_stats.get(category, 0) + 1
-                    else:
-                        total_ai += 1
-
-            print(f"📈 검수 완료:")
-            for linter, count in linter_stats.items():
-                print(f"  🔧 {linter}: {count}개")
-            if total_ai > 0:
-                print(f"  🤖 AI 분석: {total_ai}개")
-
-            self.create_review_comments(all_issues)
+        if success:
+            print("✅ AI PR 분석이 완료되었습니다!")
         else:
-            print("✅ 모든 분석 대상 파일이 품질 기준을 통과했습니다!")
+            print("❌ 분석 결과 등록에 실패했습니다.")
 
 if __name__ == "__main__":
-    analyzer = UniversalLineAnalyzer()
-    analyzer.run_universal_analysis()
+    analyzer = PRAnalyzer()
+    analyzer.run_analysis()
