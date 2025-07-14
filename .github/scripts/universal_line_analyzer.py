@@ -164,18 +164,171 @@ class UniversalLineAnalyzer:
             print(f"AI 분석 실패: {e}")
             return []
 
+    def get_existing_review_comments(self):
+        """기존 AI 리뷰 코멘트 분석"""
+        existing_comments = {}
+
+        try:
+            # PR의 모든 리뷰 가져오기
+            reviews = self.pr.get_reviews()
+
+            for review in reviews:
+                # github-actions bot이 작성한 리뷰만 확인
+                if review.user.login == 'github-actions[bot]':
+                    # 리뷰의 라인별 코멘트 가져오기
+                    review_comments = self.pr.get_review_comments()
+
+                    for comment in review_comments:
+                        if comment.user.login == 'github-actions[bot]':
+                            # 파일 경로와 라인 번호를 키로 사용
+                            key = f"{comment.path}:{comment.line}"
+
+                            # 코멘트 내용에서 핵심 부분 추출 (우선순위, 카테고리, 메시지)
+                            comment_info = self.extract_comment_info(comment.body)
+                            existing_comments[key] = comment_info
+
+            return existing_comments
+
+        except Exception as e:
+            print(f"기존 코멘트 조회 실패: {e}")
+            return {}
+
+    def extract_comment_info(self, comment_body: str):
+        """코멘트에서 핵심 정보 추출"""
+        try:
+            import re
+
+            # 우선순위 추출 [P2] 또는 [P3]
+            priority_match = re.search(r'\[P([23])\]', comment_body)
+            priority = f"P{priority_match.group(1)}" if priority_match else "P3"
+
+            # 카테고리 추출 **카테고리**: 메시지
+            category_match = re.search(r'\*\*([^*]+)\*\*:\s*([^\n]+)', comment_body)
+            category = category_match.group(1).strip() if category_match else "unknown"
+            message = category_match.group(2).strip() if category_match else ""
+
+            return {
+                'priority': priority,
+                'category': category,
+                'message': message,
+                'full_body': comment_body
+            }
+
+        except Exception:
+            return {
+                'priority': 'P3',
+                'category': 'unknown',
+                'message': '',
+                'full_body': comment_body
+            }
+
+    def is_duplicate_comment(self, new_issue: Dict, existing_comment: Dict) -> bool:
+        """새 이슈가 기존 코멘트와 중복인지 확인"""
+
+        # 우선순위와 카테고리가 같은지 확인
+        if (new_issue.get('priority') == existing_comment.get('priority') and
+            new_issue.get('category') == existing_comment.get('category')):
+
+            # 메시지 유사도 확인 (간단한 키워드 기반)
+            new_message = new_issue.get('message', '').lower()
+            existing_message = existing_comment.get('message', '').lower()
+
+            # 핵심 키워드가 포함되어 있는지 확인
+            key_phrases = [
+                '들여쓰기', '4칸 스페이스', 'camelcase', '함수명', '변수명',
+                '메모리 누수', '성능', '안티패턴', '복잡도', '네이밍'
+            ]
+
+            for phrase in key_phrases:
+                if phrase in new_message and phrase in existing_message:
+                    return True
+
+            # 메시지가 70% 이상 유사하면 중복으로 판단
+            similarity = self.calculate_message_similarity(new_message, existing_message)
+            if similarity > 0.7:
+                return True
+
+        return False
+
+    def calculate_message_similarity(self, message1: str, message2: str) -> float:
+        """두 메시지의 유사도 계산 (간단한 단어 기반)"""
+        if not message1 or not message2:
+            return 0.0
+
+        words1 = set(message1.split())
+        words2 = set(message2.split())
+
+        if not words1 or not words2:
+            return 0.0
+
+        intersection = words1.intersection(words2)
+        union = words1.union(words2)
+
+        return len(intersection) / len(union)
+
+    def filter_duplicate_issues(self, all_issues: Dict[str, List[Dict]]) -> Dict[str, List[Dict]]:
+        """중복 이슈 필터링"""
+
+        print("🔍 기존 코멘트와 중복 여부를 확인하는 중...")
+
+        # 기존 코멘트 가져오기
+        existing_comments = self.get_existing_review_comments()
+
+        if not existing_comments:
+            print("  ✅ 기존 AI 코멘트가 없음 - 모든 이슈 분석")
+            return all_issues
+
+        filtered_issues = {}
+        total_issues = 0
+        duplicate_count = 0
+
+        for file_path, issues in all_issues.items():
+            filtered_file_issues = []
+
+            for issue in issues:
+                total_issues += 1
+                line = issue['line']
+                comment_key = f"{file_path}:{line}"
+
+                # 해당 라인에 기존 코멘트가 있는지 확인
+                if comment_key in existing_comments:
+                    existing_comment = existing_comments[comment_key]
+
+                    # 중복 여부 확인
+                    if self.is_duplicate_comment(issue, existing_comment):
+                        duplicate_count += 1
+                        print(f"  ⏭️ 중복 건너뛰기: {file_path}:{line} - {issue['category']}")
+                        continue
+                    else:
+                        print(f"  🔄 다른 이슈 감지: {file_path}:{line} - {issue['category']}")
+
+                filtered_file_issues.append(issue)
+
+            if filtered_file_issues:
+                filtered_issues[file_path] = filtered_file_issues
+
+        print(f"📊 중복 필터링 결과: 전체 {total_issues}개 중 {duplicate_count}개 중복 제거")
+        return filtered_issues
+
     def create_review_comments(self, all_issues: Dict[str, List[Dict]]):
-        """GitHub Review API로 라인별 코멘트 생성"""
+        """GitHub Review API로 라인별 코멘트 생성 (중복 방지 포함)"""
 
         if not any(all_issues.values()):
             print("발견된 이슈가 없습니다.")
+            return
+
+        # 중복 이슈 필터링
+        filtered_issues = self.filter_duplicate_issues(all_issues)
+
+        if not any(filtered_issues.values()):
+            print("✅ 모든 이슈가 기존 코멘트와 중복됩니다. 새로운 코멘트를 생성하지 않습니다.")
             return
 
         comments = []
         linter_counts = {}  # 린터별 이슈 개수
         ai_count = 0
 
-        for file_path, issues in all_issues.items():
+        for file_path, issues in filtered_issues.items():
             language = self.universal_analyzer.detect_language(file_path)
 
             for issue in issues:
@@ -217,19 +370,19 @@ class UniversalLineAnalyzer:
             )
 
             total_static = sum(linter_counts.values())
-            print(f"✅ 총 {len(comments)}개 라인별 코멘트 (정적분석: {total_static}, AI: {ai_count})가 생성되었습니다: {review.html_url}")
+            print(f"✅ 총 {len(comments)}개 새로운 라인별 코멘트 (정적분석: {total_static}, AI: {ai_count})가 생성되었습니다: {review.html_url}")
 
         except Exception as e:
             print(f"❌ 라인별 리뷰 생성 실패: {e}")
             print("Diff 기반 라인별 코멘트로 재시도...")
-            self.create_diff_based_comments(all_issues)
+            self.create_diff_based_comments(filtered_issues)
 
-    def create_diff_based_comments(self, all_issues: Dict[str, List[Dict]]):
+    def create_diff_based_comments(self, filtered_issues: Dict[str, List[Dict]]):
         """Diff 기반 라인별 코멘트 생성 (대체 방법)"""
 
         comments = []
 
-        for file_path, issues in all_issues.items():
+        for file_path, issues in filtered_issues.items():
             # PR에서 해당 파일의 diff 정보 가져오기
             pr_file = None
             for file in self.pr.get_files():
@@ -283,11 +436,11 @@ class UniversalLineAnalyzer:
                 comments=comments
             )
 
-            print(f"✅ {len(comments)}개 diff 기반 라인별 코멘트가 생성되었습니다: {review.html_url}")
+            print(f"✅ {len(comments)}개 diff 기반 새로운 라인별 코멘트가 생성되었습니다: {review.html_url}")
 
         except Exception as e:
             print(f"❌ Diff 기반 코멘트 생성도 실패: {e}")
-            self.create_fallback_comment(all_issues)
+            self.create_fallback_comment(filtered_issues)
 
     def parse_diff_line_mapping(self, patch: str) -> Dict[int, int]:
         """diff patch에서 파일 라인 번호 → diff 위치 매핑 생성"""
@@ -320,11 +473,11 @@ class UniversalLineAnalyzer:
         """파일 라인 번호를 diff 위치로 변환"""
         return mapping.get(file_line)
 
-    def create_fallback_comment(self, all_issues: Dict[str, List[Dict]]):
+    def create_fallback_comment(self, filtered_issues: Dict[str, List[Dict]]):
         """Review API 실패 시 일반 코멘트로 대체"""
         comment_body = "🤖 **범용 코드 품질 검수 결과**\n\n"
 
-        for file_path, issues in all_issues.items():
+        for file_path, issues in filtered_issues.items():
             if issues:
                 language = self.universal_analyzer.detect_language(file_path)
                 comment_body += f"\n### 📁 {file_path} ({language})\n"
