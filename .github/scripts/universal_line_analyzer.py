@@ -68,101 +68,115 @@ class UniversalLineAnalyzer:
             'kotlin': [
                 "Android 메모리 누수 (Handler, Listener 등)",
                 "코루틴 스코프 관리",
-                "Room 데이터베이스 쿼리 최적화",
-                "Compose 리컴포지션 최적화"
+                "Room 데이터베이스 쿼리 최적화"
             ],
             'swift': [
                 "iOS 메모리 누수 (강한 순환 참조)",
                 "DispatchQueue 사용 최적화",
-                "Core Data 성능 문제",
-                "UIKit 생명주기 관리"
+                "Core Data 성능 문제"
             ],
             'javascript': [
                 "메모리 누수 (이벤트 리스너, 클로저)",
                 "비동기 처리 최적화",
-                "DOM 조작 성능",
-                "번들 크기 최적화"
+                "DOM 조작 성능"
             ]
         }
 
         specific_points = language_specific_points.get(language, [])
 
         analysis_prompt = f"""
-당신은 {language} 코드 리뷰 전문가입니다. 정적 분석 도구로는 찾기 어려운 고급 문제점을 분석해주세요.
+{language} 고급 코드 품질 분석을 수행합니다.
 
-**파일:** {file_path}
-**언어:** {language}
-**팀 컨벤션:** {conventions}
+파일: {file_path}
+특화 분석: {', '.join(specific_points)}
 
-**{language} 특화 분석 포인트:**
-{chr(10).join(f'- {point}' for point in specific_points)}
-
-**파일 내용 (일부):**
+코드:
 ```{language}
-{file_content[:2000]}
+{file_content[:1500]}
 ```
 
-**변경사항:**
+변경사항:
 ```diff
-{patch[:1500]}
+{patch[:1000]}
 ```
 
-**분석 대상:**
+P2 우선순위: 메모리 누수, 성능 이슈, 안티패턴, 보안 취약점
+P3 우선순위: 복잡한 로직, 코드 중복, 매직 넘버, 네이밍
 
-**P2 (중간 우선순위):**
-- 메모리 누수 위험
-- 성능 이슈 (O(n²) 알고리즘, 불필요한 연산)
-- 안티패턴 (God Object, 강한 결합)
-- 동시성/비동기 처리 문제
-- 보안 취약점
-
-**P3 (낮은 우선순위):**
-- 복잡한 로직 (순환 복잡도 높음)
-- 코드 중복
-- 매직 넘버/스트링
-- 과도한 매개변수
-- 네이밍 개선 여지
-
-**응답 형식:**
-```json
+마크다운 없이 순수 JSON 배열만 응답:
 [
   {{
     "line": 줄번호,
     "priority": "P2"|"P3",
-    "category": "메모리|성능|안티패턴|동시성|보안|복잡도|중복|네이밍",
-    "message": "구체적인 문제와 {language} 특화 개선방안",
-    "suggestion": "개선된 코드 예시"
+    "category": "메모리|성능|안티패턴|보안|복잡도|중복|네이밍",
+    "message": "문제점을 50자 이내로",
+    "suggestion": "수정 예시를 한 줄로"
   }}
 ]
-```
 
-변경된 부분만 분석하고, 실제 문제가 있을 때만 보고해주세요.
+변경된 부분만 분석하고, 실제 문제가 있을 때만 포함하세요.
 """
 
         try:
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": f"{language} 전문 코드 리뷰어로서 정적 분석 도구가 놓치는 고급 문제를 찾아냅니다."},
+                    {"role": "system", "content": f"순수 JSON만 응답하는 {language} 고급 분석 전문가입니다."},
                     {"role": "user", "content": analysis_prompt}
                 ],
-                max_tokens=1200,
+                max_tokens=800,
                 temperature=0.1
             )
 
             response_text = response.choices[0].message.content.strip()
 
+            # 마크다운 코드 블록 제거
+            response_text = self.clean_json_response(response_text)
+
             import json
             try:
                 issues = json.loads(response_text)
                 return issues if isinstance(issues, list) else []
-            except json.JSONDecodeError:
-                print(f"AI 분석 JSON 파싱 실패: {response_text[:200]}")
+            except json.JSONDecodeError as e:
+                print(f"AI 고급 분석 JSON 파싱 실패: {response_text[:200]}...")
+                print(f"JSON 오류: {e}")
                 return []
 
         except Exception as e:
-            print(f"AI 분석 실패: {e}")
+            print(f"AI 고급 분석 실패: {e}")
             return []
+
+    def clean_json_response(self, response_text: str) -> str:
+        """AI 응답에서 순수 JSON만 추출"""
+
+        # 마크다운 코드 블록 제거
+        if "```json" in response_text:
+            start = response_text.find("```json") + 7
+            end = response_text.find("```", start)
+            if end != -1:
+                response_text = response_text[start:end].strip()
+            else:
+                response_text = response_text[start:].strip()
+        elif "```" in response_text:
+            start = response_text.find("```") + 3
+            end = response_text.find("```", start)
+            if end != -1:
+                response_text = response_text[start:end].strip()
+
+        # 앞뒤 불필요한 텍스트 제거
+        response_text = response_text.strip()
+
+        # JSON 배열이 시작하는 지점 찾기
+        start_bracket = response_text.find('[')
+        if start_bracket != -1:
+            response_text = response_text[start_bracket:]
+
+        # JSON 배열이 끝나는 지점 찾기 (마지막 ]까지)
+        end_bracket = response_text.rfind(']')
+        if end_bracket != -1:
+            response_text = response_text[:end_bracket + 1]
+
+        return response_text
 
     def get_existing_review_comments(self):
         """기존 AI 리뷰 코멘트 분석"""
@@ -196,8 +210,6 @@ class UniversalLineAnalyzer:
     def extract_comment_info(self, comment_body: str):
         """코멘트에서 핵심 정보 추출"""
         try:
-            import re
-
             # 우선순위 추출 [P2] 또는 [P3]
             priority_match = re.search(r'\[P([23])\]', comment_body)
             priority = f"P{priority_match.group(1)}" if priority_match else "P3"
@@ -325,7 +337,7 @@ class UniversalLineAnalyzer:
             return
 
         comments = []
-        linter_counts = {}  # 린터별 이슈 개수
+        linter_counts = {}
         advanced_count = 0
 
         for file_path, issues in filtered_issues.items():
@@ -358,12 +370,11 @@ class UniversalLineAnalyzer:
                     'path': file_path,
                     'body': comment_body,
                     'line': issue['line'],
-                    'side': 'RIGHT'  # 변경된 코드 라인에 코멘트 (RIGHT = 새 버전, LEFT = 이전 버전)
+                    'side': 'RIGHT'
                 })
 
         # GitHub Review 생성 (요약 코멘트 없이 라인별 코멘트만)
         try:
-            # Review 생성 (body 없이 라인별 코멘트만)
             review = self.pr.create_review(
                 event="COMMENT",
                 comments=comments
@@ -408,12 +419,12 @@ class UniversalLineAnalyzer:
                     continue  # 변경되지 않은 라인은 코멘트 불가
 
                 category = issue.get('category', 'unknown')
-                if category in ['ktlint', 'swiftlint', 'eslint']:
-                    source_emoji = '🔧'
-                    source_text = category
-                else:
+                if category in ['kotlinlint', 'swiftlint', 'eslint']:
                     source_emoji = '🤖'
-                    source_text = 'AI 분석'
+                    source_text = f'AI {category}'
+                else:
+                    source_emoji = '🧠'
+                    source_text = 'AI 고급분석'
 
                 priority_emoji = {'P2': '🟡', 'P3': '🔵'}
 
@@ -426,7 +437,7 @@ class UniversalLineAnalyzer:
                 comments.append({
                     'path': file_path,
                     'body': comment_body,
-                    'position': diff_line  # diff 내에서의 위치
+                    'position': diff_line
                 })
 
         # Review 생성 (요약 코멘트 없이)
@@ -453,7 +464,6 @@ class UniversalLineAnalyzer:
         for line in lines:
             if line.startswith('@@'):
                 # @@ -old_start,old_count +new_start,new_count @@ 형식 파싱
-                import re
                 match = re.search(r'\+(\d+)', line)
                 if match:
                     current_new_line = int(match.group(1)) - 1
@@ -484,10 +494,10 @@ class UniversalLineAnalyzer:
 
                 for issue in issues:
                     category = issue.get('category', 'unknown')
-                    if category in ['ktlint', 'swiftlint', 'eslint']:
-                        source_emoji = '🔧'
-                    else:
+                    if category in ['kotlinlint', 'swiftlint', 'eslint']:
                         source_emoji = '🤖'
+                    else:
+                        source_emoji = '🧠'
 
                     priority_emoji = {'P2': '🟡', 'P3': '🔵'}
                     comment_body += f"- **Line {issue['line']}** {priority_emoji.get(issue['priority'], '📝')} [{issue['priority']}] {source_emoji} {issue['category']}: {issue['message']}\n"
@@ -565,9 +575,9 @@ class UniversalLineAnalyzer:
 
         # 리뷰 코멘트 생성
         if all_issues:
-            # 전체 이슈 통계
-            total_static = 0
-            total_ai = 0
+            # 전체 이슈 통계 계산
+            total_lint = 0
+            total_advanced = 0
             linter_stats = {}
 
             for issues in all_issues.values():
@@ -581,9 +591,9 @@ class UniversalLineAnalyzer:
 
             print(f"📈 검수 완료:")
             for linter, count in linter_stats.items():
-                print(f"  🔧 {linter}: {count}개")
-            if total_ai > 0:
-                print(f"  🤖 AI 분석: {total_ai}개")
+                print(f"  🤖 {linter}: {count}개")
+            if total_advanced > 0:
+                print(f"  🧠 고급 분석: {total_advanced}개")
 
             self.create_review_comments(all_issues)
         else:
