@@ -3,23 +3,33 @@ name: AI PR Review
 
 on:
   pull_request:
-    types: [opened, synchronize]
-  # opened: PR 최초 생성 시
-  # synchronize: 새로운 커밋이 push될 때
+    types: [opened]  # PR 최초 생성 시에만 자동 실행
+  issue_comment:
+    types: [created]  # 코멘트로 수동 트리거
+  workflow_dispatch:  # 수동 실행 버튼
 
 permissions:
   contents: read
-  pull-requests: write  # PR에 코멘트를 달기 위해 필요
+  pull-requests: write
+  issues: write
 
 jobs:
   ai-review:
+    # PR 최초 생성이거나, 특정 명령어 코멘트이거나, 수동 실행인 경우만 실행
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && 
+       contains(github.event.comment.body, '/ai-review') &&
+       github.event.issue.pull_request)
+
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 전체 히스토리를 가져와서 변경사항 분석
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -30,40 +40,58 @@ jobs:
         run: |
           pip install openai requests PyGithub pyyaml
 
-      - name: Get changed files
-        id: changed-files
+      - name: Get PR number
+        id: pr-number
         run: |
-          # PR에서 변경된 파일 목록 가져오기
-          git diff --name-only origin/${{ github.base_ref }} > changed_files.txt
-          echo "changed_files=$(cat changed_files.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "pr_number=${{ github.event.number }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            echo "pr_number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+          else
+            # workflow_dispatch의 경우 input으로 받거나 기본값 설정
+            echo "pr_number=${PR_NUMBER:-${{ github.event.pull_request.number }}}" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Get file changes
-        id: file-changes
-        run: |
-          # 변경된 파일들의 실제 diff 내용 가져오기
-          git diff origin/${{ github.base_ref }} > changes.diff
-          echo "Generated diff file"
+      - name: Add reaction to trigger comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'  # 🚀 리액션 추가
+            });
 
-      - name: Run AI Analysis
+      - name: Run AI PR Analysis
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.number }}
+          PR_NUMBER: ${{ steps.pr-number.outputs.pr_number }}
           REPO_NAME: ${{ github.repository }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           python .github/scripts/ai_pr_analyzer.py
 
-      - name: Run Universal Code Quality Check
+      - name: Run Line-by-Line Analysis
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.number }}
+          PR_NUMBER: ${{ steps.pr-number.outputs.pr_number }}
           REPO_NAME: ${{ github.repository }}
         run: |
           python .github/scripts/universal_line_analyzer.py
 
-      - name: Clean up
-        run: |
-          rm -f changed_files.txt changes.diff
+      - name: Post completion comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.pr-number.outputs.pr_number }},
+              body: '✅ AI 코드 리뷰 분석이 완료되었습니다! 새로운 코멘트들을 확인해보세요.'
+            });
