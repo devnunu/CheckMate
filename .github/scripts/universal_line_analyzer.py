@@ -1,5 +1,6 @@
 # .github/scripts/universal_line_analyzer.py
 import os
+import re
 import openai
 from github import Github
 from typing import List, Dict
@@ -24,7 +25,6 @@ class UniversalLineAnalyzer:
             readme = self.repo.get_contents("README.md")
             readme_content = readme.decoded_content.decode('utf-8')
 
-            import re
             convention_match = re.search(
                 r'## AI 리뷰 가이드라인.*?(?=##|$)',
                 readme_content,
@@ -194,16 +194,18 @@ class UniversalLineAnalyzer:
                 # 우선순위별 이모지
                 priority_emoji = {'P2': '🟡', 'P3': '🔵'}
 
-                comment_body = f"{priority_emoji.get(issue['priority'], '📝')} **[{issue['priority']}]** {source_emoji} **{source_text}**\n\n"
+                comment_body = f"{priority_emoji.get(issue['priority'], '📝')} **[{issue['priority']}] {source_text}**\n\n"
                 comment_body += f"**{issue['category']}**: {issue['message']}\n"
 
                 if issue.get('suggestion'):
                     comment_body += f"\n**💡 개선 제안:**\n```{language}\n{issue['suggestion']}\n```"
 
+                # GitHub Review API 코멘트 형식
                 comments.append({
                     'path': file_path,
+                    'body': comment_body,
                     'line': issue['line'],
-                    'body': comment_body
+                    'side': 'RIGHT'  # 변경된 코드 라인에 코멘트 (RIGHT = 새 버전, LEFT = 이전 버전)
                 })
 
         # GitHub Review 생성
@@ -218,8 +220,9 @@ class UniversalLineAnalyzer:
                 review_body += f"🤖 **AI 고급 분석**: {ai_count}개 이슈\n"
 
             review_body += f"\n**지원 언어:** {', '.join(self.universal_analyzer.linters.keys())}\n"
-            review_body += "검토 후 필요시 수정해주세요. 정적 분석 이슈는 IDE에서 자동 수정 가능합니다."
+            review_body += "각 파일의 해당 라인에 개별 코멘트가 달렸습니다. IDE에서 자동 수정 가능합니다."
 
+            # Review 생성 (라인별 코멘트 포함)
             review = self.pr.create_review(
                 body=review_body,
                 event="COMMENT",
@@ -227,6 +230,226 @@ class UniversalLineAnalyzer:
             )
 
             total_static = sum(linter_counts.values())
-            print(f"✅ 총 {len(comments)}개 코멘트 (정적분석: {total_static}, AI: {ai_count})가 포함된 리뷰가 생성되었습니다: {review.html_url}")
+            print(f"✅ 총 {len(comments)}개 라인별 코멘트 (정적분석: {total_static}, AI: {ai_count})가 생성되었습니다: {review.html_url}")
 
-        except Exception as e
+        except Exception as e:
+            print(f"❌ 라인별 리뷰 생성 실패: {e}")
+            print("Diff 기반 라인별 코멘트로 재시도...")
+            self.create_diff_based_comments(all_issues)
+
+    def create_diff_based_comments(self, all_issues: Dict[str, List[Dict]]):
+        """Diff 기반 라인별 코멘트 생성 (대체 방법)"""
+
+        comments = []
+
+        for file_path, issues in all_issues.items():
+            # PR에서 해당 파일의 diff 정보 가져오기
+            pr_file = None
+            for file in self.pr.get_files():
+                if file.filename == file_path:
+                    pr_file = file
+                    break
+
+            if not pr_file or not pr_file.patch:
+                continue
+
+            # diff에서 변경된 라인 번호 매핑
+            diff_line_mapping = self.parse_diff_line_mapping(pr_file.patch)
+
+            language = self.universal_analyzer.detect_language(file_path)
+
+            for issue in issues:
+                file_line = issue['line']
+
+                # 실제 파일 라인을 diff 라인으로 변환
+                diff_line = self.convert_file_line_to_diff_line(file_line, diff_line_mapping)
+
+                if diff_line is None:
+                    continue  # 변경되지 않은 라인은 코멘트 불가
+
+                category = issue.get('category', 'unknown')
+                if category in ['ktlint', 'swiftlint', 'eslint']:
+                    source_emoji = '🔧'
+                    source_text = category
+                else:
+                    source_emoji = '🤖'
+                    source_text = 'AI 분석'
+
+                priority_emoji = {'P2': '🟡', 'P3': '🔵'}
+
+                comment_body = f"{priority_emoji.get(issue['priority'], '📝')} **[{issue['priority']}] {source_text}**\n\n"
+                comment_body += f"**{issue['category']}**: {issue['message']}\n"
+
+                if issue.get('suggestion'):
+                    comment_body += f"\n**💡 개선 제안:**\n```{language}\n{issue['suggestion']}\n```"
+
+                comments.append({
+                    'path': file_path,
+                    'body': comment_body,
+                    'position': diff_line  # diff 내에서의 위치
+                })
+
+        # Review 생성
+        try:
+            review = self.pr.create_review(
+                body="🤖 **라인별 코드 품질 검수**\n\n변경된 코드의 해당 라인에 코멘트가 달렸습니다.",
+                event="COMMENT",
+                comments=comments
+            )
+
+            print(f"✅ {len(comments)}개 diff 기반 라인별 코멘트가 생성되었습니다: {review.html_url}")
+
+        except Exception as e:
+            print(f"❌ Diff 기반 코멘트 생성도 실패: {e}")
+            self.create_fallback_comment(all_issues)
+
+    def parse_diff_line_mapping(self, patch: str) -> Dict[int, int]:
+        """diff patch에서 파일 라인 번호 → diff 위치 매핑 생성"""
+        mapping = {}
+        lines = patch.split('\n')
+
+        current_new_line = 0
+        diff_position = 0
+
+        for line in lines:
+            if line.startswith('@@'):
+                # @@ -old_start,old_count +new_start,new_count @@ 형식 파싱
+                import re
+                match = re.search(r'\+(\d+)', line)
+                if match:
+                    current_new_line = int(match.group(1)) - 1
+            elif line.startswith('+'):
+                current_new_line += 1
+                mapping[current_new_line] = diff_position
+            elif line.startswith(' '):
+                current_new_line += 1
+                mapping[current_new_line] = diff_position
+            # '-'로 시작하는 라인은 current_new_line 증가하지 않음
+
+            diff_position += 1
+
+        return mapping
+
+    def convert_file_line_to_diff_line(self, file_line: int, mapping: Dict[int, int]) -> int:
+        """파일 라인 번호를 diff 위치로 변환"""
+        return mapping.get(file_line)
+
+    def create_fallback_comment(self, all_issues: Dict[str, List[Dict]]):
+        """Review API 실패 시 일반 코멘트로 대체"""
+        comment_body = "🤖 **범용 코드 품질 검수 결과**\n\n"
+
+        for file_path, issues in all_issues.items():
+            if issues:
+                language = self.universal_analyzer.detect_language(file_path)
+                comment_body += f"\n### 📁 {file_path} ({language})\n"
+
+                for issue in issues:
+                    category = issue.get('category', 'unknown')
+                    if category in ['ktlint', 'swiftlint', 'eslint']:
+                        source_emoji = '🔧'
+                    else:
+                        source_emoji = '🤖'
+
+                    priority_emoji = {'P2': '🟡', 'P3': '🔵'}
+                    comment_body += f"- **Line {issue['line']}** {priority_emoji.get(issue['priority'], '📝')} [{issue['priority']}] {source_emoji} {issue['category']}: {issue['message']}\n"
+
+        try:
+            self.pr.create_issue_comment(comment_body)
+            print("✅ 대체 코멘트가 생성되었습니다.")
+        except Exception as e:
+            print(f"❌ 대체 코멘트 생성도 실패: {e}")
+
+    def run_universal_analysis(self):
+        """범용 분석 전체 프로세스 실행"""
+        print("🔍 범용 코드 품질 검수를 시작합니다...")
+
+        # 분석 설정 요약
+        analysis_summary = self.universal_analyzer.get_analysis_summary()
+        print(f"📋 {analysis_summary}")
+
+        # 컨벤션 정보 읽기
+        conventions = self.read_conventions()
+
+        # 지원하는 파일 확장자
+        supported_extensions = self.universal_analyzer.get_supported_extensions()
+
+        # PR의 변경된 파일들 가져오기
+        files = self.pr.get_files()
+        all_issues = {}
+        analyzed_count = 0
+        skipped_count = 0
+
+        for file in files:
+            # 삭제된 파일 건너뛰기
+            if file.status == 'removed':
+                continue
+
+            # 지원하는 파일 확장자 확인
+            is_supported = any(file.filename.endswith(ext) for ext in supported_extensions)
+            if not is_supported:
+                skipped_count += 1
+                continue
+
+            print(f"📝 분석 중: {file.filename}")
+            analyzed_count += 1
+
+            try:
+                # 현재 파일 내용 가져오기
+                content = self.repo.get_contents(file.filename, ref=self.pr.head.sha)
+                file_content = content.decoded_content.decode('utf-8')
+
+                # 파일별 이슈 분석
+                issues = self.analyze_file_for_issues(
+                    file.filename,
+                    file_content,
+                    file.patch or "",
+                    conventions
+                )
+
+                if issues:
+                    all_issues[file.filename] = issues
+
+                    # 이슈 분류별 개수 계산
+                    static_issues = [i for i in issues if i.get('category') in ['ktlint', 'swiftlint', 'eslint']]
+                    ai_issues = [i for i in issues if i.get('category') not in ['ktlint', 'swiftlint', 'eslint']]
+
+                    print(f"  ⚠️ 총 {len(issues)}개 이슈 (정적분석: {len(static_issues)}, AI: {len(ai_issues)})")
+                else:
+                    print(f"  ✅ 이슈 없음")
+
+            except Exception as e:
+                print(f"  ❌ 분석 실패: {e}")
+                continue
+
+        # 결과 요약
+        print(f"\n📊 분석 완료: {analyzed_count}개 파일 분석, {skipped_count}개 파일 건너뛰기")
+
+        # 리뷰 코멘트 생성
+        if all_issues:
+            # 전체 이슈 통계
+            total_static = 0
+            total_ai = 0
+            linter_stats = {}
+
+            for issues in all_issues.values():
+                for issue in issues:
+                    category = issue.get('category', 'unknown')
+                    if category in ['ktlint', 'swiftlint', 'eslint']:
+                        total_static += 1
+                        linter_stats[category] = linter_stats.get(category, 0) + 1
+                    else:
+                        total_ai += 1
+
+            print(f"📈 검수 완료:")
+            for linter, count in linter_stats.items():
+                print(f"  🔧 {linter}: {count}개")
+            if total_ai > 0:
+                print(f"  🤖 AI 분석: {total_ai}개")
+
+            self.create_review_comments(all_issues)
+        else:
+            print("✅ 모든 분석 대상 파일이 품질 기준을 통과했습니다!")
+
+if __name__ == "__main__":
+    analyzer = UniversalLineAnalyzer()
+    analyzer.run_universal_analysis()
