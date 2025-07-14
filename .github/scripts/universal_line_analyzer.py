@@ -208,23 +208,10 @@ class UniversalLineAnalyzer:
                     'side': 'RIGHT'  # 변경된 코드 라인에 코멘트 (RIGHT = 새 버전, LEFT = 이전 버전)
                 })
 
-        # GitHub Review 생성
+        # GitHub Review 생성 (요약 코멘트 없이 라인별 코멘트만)
         try:
-            review_body = f"🤖 **범용 코드 품질 자동 검수 결과**\n\n"
-
-            # 린터별 이슈 개수 표시
-            for linter, count in linter_counts.items():
-                review_body += f"🔧 **{linter}**: {count}개 이슈\n"
-
-            if ai_count > 0:
-                review_body += f"🤖 **AI 고급 분석**: {ai_count}개 이슈\n"
-
-            review_body += f"\n**지원 언어:** {', '.join(self.universal_analyzer.linters.keys())}\n"
-            review_body += "각 파일의 해당 라인에 개별 코멘트가 달렸습니다. IDE에서 자동 수정 가능합니다."
-
-            # Review 생성 (라인별 코멘트 포함)
+            # Review 생성 (body 없이 라인별 코멘트만)
             review = self.pr.create_review(
-                body=review_body,
                 event="COMMENT",
                 comments=comments
             )
@@ -289,10 +276,9 @@ class UniversalLineAnalyzer:
                     'position': diff_line  # diff 내에서의 위치
                 })
 
-        # Review 생성
+        # Review 생성 (요약 코멘트 없이)
         try:
             review = self.pr.create_review(
-                body="🤖 **라인별 코드 품질 검수**\n\n변경된 코드의 해당 라인에 코멘트가 달렸습니다.",
                 event="COMMENT",
                 comments=comments
             )
