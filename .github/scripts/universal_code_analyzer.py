@@ -45,63 +45,96 @@ class LanguageLinter(ABC):
 {self.get_linter_description()}
 
 **프로젝트 설정 파일:**
-```
 {config_content}
-```
 
 **분석할 코드:**
 ```{self.get_language_name()}
-{file_content[:3000]}  # 토큰 제한으로 일부만
+{file_content[:2000]}
 ```
 
 **분석 요청:**
-위 설정 파일의 규칙에 따라 코드를 검사하고, 위반사항을 찾아 JSON 배열로 응답해주세요.
+위 설정에 따라 코드를 검사하고, 위반사항을 찾아 순수한 JSON 배열로만 응답해주세요.
 
-각 위반사항은 다음 형식으로:
-```json
+응답 형식 (마크다운 코드 블록 사용하지 말고 순수 JSON만):
 [
   {{
     "line": 줄번호,
-    "rule": "규칙명 (예: indent, max-line-length, function-naming)",
+    "rule": "규칙명",
     "priority": "P3",
     "category": "{self.get_language_name().lower()}lint",
-    "message": "구체적인 문제 설명",
-    "suggestion": "수정된 코드 예시"
+    "message": "위반 내용을 한 문장으로 간단히",
+    "suggestion": "수정 예시를 한 줄로"
   }}
 ]
-```
 
-**중요:**
-- 설정 파일에서 disabled된 규칙은 검사하지 마세요
-- 실제 위반이 있는 줄 번호만 정확히 지정하세요
-- 문제가 없으면 빈 배열 [] 반환
-- JSON 형식만 응답하고 다른 텍스트는 포함하지 마세요
+중요사항:
+- 마크다운 ```json 블록 사용 금지
+- 순수 JSON 배열만 응답
+- 문제없으면 빈 배열 []
+- 각 메시지는 50자 이내로 간단히
+- suggestion도 한 줄 코드로만
 """
 
         try:
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": f"{self.get_language_name()} 린터 전문가로서 설정 파일 기반으로 정확한 코드 검사를 수행합니다."},
+                    {"role": "system", "content": f"순수 JSON만 응답하는 {self.get_language_name()} 린터입니다. 마크다운 사용 금지."},
                     {"role": "user", "content": analysis_prompt}
                 ],
-                max_tokens=1500,
+                max_tokens=1000,  # 토큰 제한을 줄여서 응답 잘림 방지
                 temperature=0.1
             )
 
             response_text = response.choices[0].message.content.strip()
 
+            # 마크다운 코드 블록 제거
+            response_text = self.clean_json_response(response_text)
+
             import json
             try:
                 violations = json.loads(response_text)
                 return violations if isinstance(violations, list) else []
-            except json.JSONDecodeError:
-                print(f"AI 린트 분석 JSON 파싱 실패: {response_text[:200]}")
+            except json.JSONDecodeError as e:
+                print(f"AI 린트 분석 JSON 파싱 실패: {response_text[:200]}...")
+                print(f"JSON 오류: {e}")
                 return []
 
         except Exception as e:
             print(f"AI 린트 분석 실패: {e}")
             return []
+
+    def clean_json_response(self, response_text: str) -> str:
+        """AI 응답에서 순수 JSON만 추출"""
+
+        # 마크다운 코드 블록 제거
+        if "```json" in response_text:
+            start = response_text.find("```json") + 7
+            end = response_text.find("```", start)
+            if end != -1:
+                response_text = response_text[start:end].strip()
+            else:
+                response_text = response_text[start:].strip()
+        elif "```" in response_text:
+            start = response_text.find("```") + 3
+            end = response_text.find("```", start)
+            if end != -1:
+                response_text = response_text[start:end].strip()
+
+        # 앞뒤 불필요한 텍스트 제거
+        response_text = response_text.strip()
+
+        # JSON 배열이 시작하는 지점 찾기
+        start_bracket = response_text.find('[')
+        if start_bracket != -1:
+            response_text = response_text[start_bracket:]
+
+        # JSON 배열이 끝나는 지점 찾기 (마지막 ]까지)
+        end_bracket = response_text.rfind(']')
+        if end_bracket != -1:
+            response_text = response_text[:end_bracket + 1]
+
+        return response_text
 
 class KotlinLinter(LanguageLinter):
     """Kotlin ktlint 린터 (AI 기반)"""
