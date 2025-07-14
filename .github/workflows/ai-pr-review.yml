@@ -28,7 +28,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install openai requests PyGithub
+          pip install openai requests PyGithub pyyaml
 
       - name: Get changed files
         id: changed-files
@@ -54,6 +54,15 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           python .github/scripts/ai_pr_analyzer.py
+
+      - name: Run Universal Code Quality Check
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          python .github/scripts/universal_line_analyzer.py
 
       - name: Clean up
         run: |
