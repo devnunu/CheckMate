@@ -4,9 +4,13 @@ from typing import Dict, List, Optional, Set
 import os
 import re
 from github import Github
+import openai
 
 class LanguageLinter(ABC):
-    """언어별 린터 인터페이스"""
+    """언어별 린터 인터페이스 (AI 기반)"""
+
+    def __init__(self, openai_client):
+        self.openai_client = openai_client
 
     @abstractmethod
     def get_language_name(self) -> str:
@@ -24,22 +28,83 @@ class LanguageLinter(ABC):
         pass
 
     @abstractmethod
-    def parse_config(self, config_content: str, config_file: str) -> Dict:
-        """설정 파일 파싱"""
+    def get_linter_description(self) -> str:
+        """린터 도구 설명 (AI가 이해할 수 있는 형태)"""
         pass
 
-    @abstractmethod
-    def get_default_rules(self) -> Dict:
-        """기본 린트 규칙"""
-        pass
+    def analyze_with_ai(self, file_content: str, file_path: str, config_content: str) -> List[Dict]:
+        """AI를 사용한 린트 분석"""
 
-    @abstractmethod
-    def check_violations(self, file_content: str, file_path: str, config: Dict) -> List[Dict]:
-        """린트 규칙 위반 검사"""
-        pass
+        analysis_prompt = f"""
+당신은 {self.get_language_name()} 전문 린터입니다. 다음 파일을 분석하여 린트 규칙 위반을 찾아주세요.
+
+**파일:** {file_path}
+**언어:** {self.get_language_name()}
+
+**린터 도구 정보:**
+{self.get_linter_description()}
+
+**프로젝트 설정 파일:**
+```
+{config_content}
+```
+
+**분석할 코드:**
+```{self.get_language_name()}
+{file_content[:3000]}  # 토큰 제한으로 일부만
+```
+
+**분석 요청:**
+위 설정 파일의 규칙에 따라 코드를 검사하고, 위반사항을 찾아 JSON 배열로 응답해주세요.
+
+각 위반사항은 다음 형식으로:
+```json
+[
+  {{
+    "line": 줄번호,
+    "rule": "규칙명 (예: indent, max-line-length, function-naming)",
+    "priority": "P3",
+    "category": "{self.get_language_name().lower()}lint",
+    "message": "구체적인 문제 설명",
+    "suggestion": "수정된 코드 예시"
+  }}
+]
+```
+
+**중요:**
+- 설정 파일에서 disabled된 규칙은 검사하지 마세요
+- 실제 위반이 있는 줄 번호만 정확히 지정하세요
+- 문제가 없으면 빈 배열 [] 반환
+- JSON 형식만 응답하고 다른 텍스트는 포함하지 마세요
+"""
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": f"{self.get_language_name()} 린터 전문가로서 설정 파일 기반으로 정확한 코드 검사를 수행합니다."},
+                    {"role": "user", "content": analysis_prompt}
+                ],
+                max_tokens=1500,
+                temperature=0.1
+            )
+
+            response_text = response.choices[0].message.content.strip()
+
+            import json
+            try:
+                violations = json.loads(response_text)
+                return violations if isinstance(violations, list) else []
+            except json.JSONDecodeError:
+                print(f"AI 린트 분석 JSON 파싱 실패: {response_text[:200]}")
+                return []
+
+        except Exception as e:
+            print(f"AI 린트 분석 실패: {e}")
+            return []
 
 class KotlinLinter(LanguageLinter):
-    """Kotlin ktlint 린터"""
+    """Kotlin ktlint 린터 (AI 기반)"""
 
     def get_language_name(self) -> str:
         return "kotlin"
@@ -50,117 +115,24 @@ class KotlinLinter(LanguageLinter):
     def get_config_files(self) -> List[str]:
         return [".editorconfig", "ktlint.conf"]
 
-    def parse_config(self, config_content: str, config_file: str) -> Dict:
-        """ktlint 설정 파싱"""
-        config = {
-            'code_style': 'official',
-            'disabled_rules': set(),
-            'custom_settings': {}
-        }
+    def get_linter_description(self) -> str:
+        return """
+ktlint는 Kotlin 코드 스타일 린터입니다.
 
-        if config_file == ".editorconfig":
-            return self._parse_editorconfig(config_content)
-        elif config_file == "ktlint.conf":
-            return self._parse_ktlint_conf(config_content)
+주요 규칙:
+- ktlint_standard_indent: 들여쓰기 (기본 4칸 스페이스)
+- ktlint_standard_max-line-length: 최대 라인 길이 (기본 120자)
+- ktlint_standard_no-wildcard-imports: 와일드카드 import 금지
+- ktlint_standard_function-naming: 함수명 camelCase
+- ktlint_standard_property-naming: 프로퍼티명 camelCase
+- ktlint_standard_enum-entry-name-case: enum 항목 UPPER_SNAKE_CASE
+- ktlint_code_style: android_studio 또는 official
 
-        return config
-
-    def _parse_editorconfig(self, content: str) -> Dict:
-        """editorconfig 파싱 (기존 로직)"""
-        config = {'disabled_rules': set(), 'custom_settings': {}}
-
-        lines = content.split('\n')
-        current_section = None
-
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-
-            if line.startswith('[') and line.endswith(']'):
-                current_section = line[1:-1]
-                continue
-
-            if current_section in ['*.kt', '*'] or current_section is None:
-                if '=' in line:
-                    key, value = line.split('=', 1)
-                    key, value = key.strip(), value.strip()
-
-                    if key.startswith('ktlint_'):
-                        if value.lower() == 'disabled':
-                            config['disabled_rules'].add(key)
-                        else:
-                            config['custom_settings'][key] = value
-
-        return config
-
-    def get_default_rules(self) -> Dict:
-        """ktlint 기본 규칙"""
-        return {
-            'indent': {
-                'description': '들여쓰기는 4칸 스페이스 사용',
-                'pattern': r'^[ ]{0,3}[^ ]|^\t',
-                'message': '들여쓰기는 4칸 스페이스를 사용해야 합니다.',
-                'priority': 'P3'
-            },
-            'max-line-length': {
-                'description': '최대 라인 길이 120자',
-                'pattern': r'^.{121,}$',
-                'message': '한 줄의 길이가 120자를 초과합니다.',
-                'priority': 'P3'
-            },
-            'no-wildcard-imports': {
-                'description': '와일드카드 import 금지',
-                'pattern': r'import\s+.*\.\*',
-                'message': '와일드카드 import(*)는 사용하지 마세요.',
-                'priority': 'P3'
-            },
-            'function-naming': {
-                'description': '함수명은 camelCase',
-                'pattern': r'fun\s+[A-Z][a-zA-Z0-9_]*\s*\(',
-                'message': '함수명은 camelCase를 사용해야 합니다.',
-                'priority': 'P3'
-            }
-        }
-
-    def check_violations(self, file_content: str, file_path: str, config: Dict) -> List[Dict]:
-        """ktlint 규칙 위반 검사"""
-        violations = []
-        rules = self.get_default_rules()
-
-        # 비활성화된 규칙 제거
-        for disabled_rule in config.get('disabled_rules', []):
-            rule_name = disabled_rule.replace('ktlint_standard_', '').replace('ktlint_', '')
-            if rule_name in rules:
-                del rules[rule_name]
-
-        lines = file_content.split('\n')
-
-        for line_num, line in enumerate(lines, 1):
-            for rule_name, rule_config in rules.items():
-                if rule_config.get('pattern') and re.search(rule_config['pattern'], line):
-                    violations.append({
-                        'line': line_num,
-                        'rule': rule_name,
-                        'priority': rule_config['priority'],
-                        'category': 'ktlint',
-                        'message': rule_config['message'],
-                        'suggestion': self._get_suggestion(rule_name, line)
-                    })
-
-        return violations
-
-    def _get_suggestion(self, rule_name: str, line: str) -> str:
-        suggestions = {
-            'indent': '들여쓰기를 4칸 스페이스로 수정하세요.',
-            'max-line-length': '긴 줄을 여러 줄로 나누어 가독성을 높이세요.',
-            'no-wildcard-imports': 'import com.example.* → import com.example.SpecificClass',
-            'function-naming': 'MyFunction() → myFunction()'
-        }
-        return suggestions.get(rule_name, '해당 규칙에 맞게 수정해주세요.')
+설정에서 "disabled"로 표시된 규칙은 검사하지 않습니다.
+"""
 
 class SwiftLinter(LanguageLinter):
-    """Swift SwiftLint 린터"""
+    """Swift SwiftLint 린터 (AI 기반)"""
 
     def get_language_name(self) -> str:
         return "swift"
@@ -171,85 +143,24 @@ class SwiftLinter(LanguageLinter):
     def get_config_files(self) -> List[str]:
         return [".swiftlint.yml", "swiftlint.yml", ".swiftlint.yaml"]
 
-    def parse_config(self, config_content: str, config_file: str) -> Dict:
-        """SwiftLint YAML 설정 파싱"""
-        import yaml
-        try:
-            config = yaml.safe_load(config_content) or {}
-            return {
-                'disabled_rules': set(config.get('disabled_rules', [])),
-                'opt_in_rules': set(config.get('opt_in_rules', [])),
-                'custom_settings': config
-            }
-        except:
-            return {'disabled_rules': set(), 'opt_in_rules': set(), 'custom_settings': {}}
+    def get_linter_description(self) -> str:
+        return """
+SwiftLint는 Swift 코드 스타일 린터입니다.
 
-    def get_default_rules(self) -> Dict:
-        """SwiftLint 기본 규칙"""
-        return {
-            'line_length': {
-                'description': '최대 라인 길이 120자',
-                'pattern': r'^.{121,}$',
-                'message': '한 줄의 길이가 120자를 초과합니다.',
-                'priority': 'P3'
-            },
-            'function_parameter_count': {
-                'description': '함수 매개변수 5개 이하',
-                'pattern': r'func\s+\w+\([^)]*,[^)]*,[^)]*,[^)]*,[^)]*,[^)]*\)',
-                'message': '함수 매개변수가 너무 많습니다. 구조체나 튜플 사용을 고려하세요.',
-                'priority': 'P2'
-            },
-            'force_cast': {
-                'description': 'force cast 사용 금지',
-                'pattern': r'\s+as!\s+',
-                'message': 'force cast(as!) 대신 안전한 캐스팅(as?)을 사용하세요.',
-                'priority': 'P2'
-            },
-            'implicitly_unwrapped_optional': {
-                'description': '암시적 옵셔널 언래핑 주의',
-                'pattern': r':\s*\w+!',
-                'message': '암시적 옵셔널 언래핑(!)보다 명시적 옵셔널을 권장합니다.',
-                'priority': 'P2'
-            }
-        }
+주요 규칙:
+- line_length: 최대 라인 길이 (기본 120자)
+- function_parameter_count: 함수 매개변수 개수 제한
+- force_cast: force cast (as!) 사용 금지
+- implicitly_unwrapped_optional: 암시적 옵셔널 언래핑 주의
+- identifier_name: 변수/함수명 규칙
+- type_name: 타입명 규칙
 
-    def check_violations(self, file_content: str, file_path: str, config: Dict) -> List[Dict]:
-        """SwiftLint 규칙 위반 검사"""
-        violations = []
-        rules = self.get_default_rules()
-
-        # 비활성화된 규칙 제거
-        for disabled_rule in config.get('disabled_rules', []):
-            if disabled_rule in rules:
-                del rules[disabled_rule]
-
-        lines = file_content.split('\n')
-
-        for line_num, line in enumerate(lines, 1):
-            for rule_name, rule_config in rules.items():
-                if rule_config.get('pattern') and re.search(rule_config['pattern'], line):
-                    violations.append({
-                        'line': line_num,
-                        'rule': rule_name,
-                        'priority': rule_config['priority'],
-                        'category': 'swiftlint',
-                        'message': rule_config['message'],
-                        'suggestion': self._get_suggestion(rule_name, line)
-                    })
-
-        return violations
-
-    def _get_suggestion(self, rule_name: str, line: str) -> str:
-        suggestions = {
-            'line_length': '긴 줄을 여러 줄로 나누어 가독성을 높이세요.',
-            'function_parameter_count': '매개변수를 구조체로 그룹화하거나 함수를 분할하세요.',
-            'force_cast': 'as! → as? 또는 guard let 사용',
-            'implicitly_unwrapped_optional': 'String! → String? 사용 권장'
-        }
-        return suggestions.get(rule_name, '해당 규칙에 맞게 수정해주세요.')
+disabled_rules에 포함된 규칙은 검사하지 않습니다.
+opt_in_rules에 포함된 규칙만 추가로 검사합니다.
+"""
 
 class JavaScriptLinter(LanguageLinter):
-    """JavaScript ESLint 린터"""
+    """JavaScript ESLint 린터 (AI 기반)"""
 
     def get_language_name(self) -> str:
         return "javascript"
@@ -260,100 +171,36 @@ class JavaScriptLinter(LanguageLinter):
     def get_config_files(self) -> List[str]:
         return [".eslintrc.json", ".eslintrc.js", "eslint.config.js", "package.json"]
 
-    def parse_config(self, config_content: str, config_file: str) -> Dict:
-        """ESLint 설정 파싱"""
-        import json
-        try:
-            if config_file == "package.json":
-                package_json = json.loads(config_content)
-                eslint_config = package_json.get('eslintConfig', {})
-            else:
-                eslint_config = json.loads(config_content)
+    def get_linter_description(self) -> str:
+        return """
+ESLint는 JavaScript/TypeScript 코드 린터입니다.
 
-            return {
-                'disabled_rules': set(),  # ESLint는 rules에서 "off"로 처리
-                'rules': eslint_config.get('rules', {}),
-                'extends': eslint_config.get('extends', [])
-            }
-        except:
-            return {'disabled_rules': set(), 'rules': {}, 'extends': []}
+주요 규칙:
+- no-unused-vars: 사용하지 않는 변수
+- prefer-const: const 사용 권장
+- no-console: console.log 사용 금지
+- eqeqeq: 엄격한 비교 연산자 (===, !==)
+- indent: 들여쓰기 규칙
+- quotes: 따옴표 스타일
+- semi: 세미콜론 사용
 
-    def get_default_rules(self) -> Dict:
-        """ESLint 기본 규칙"""
-        return {
-            'no-unused-vars': {
-                'description': '사용하지 않는 변수 제거',
-                'pattern': r'(const|let|var)\s+(\w+)(?![^;]*\2)',
-                'message': '사용하지 않는 변수를 제거해주세요.',
-                'priority': 'P3'
-            },
-            'prefer-const': {
-                'description': 'const 사용 권장',
-                'pattern': r'let\s+\w+\s*=\s*[^;]+;(?![^}]*\1\s*=)',
-                'message': '재할당하지 않는 변수는 const를 사용하세요.',
-                'priority': 'P3'
-            },
-            'no-console': {
-                'description': 'console.log 제거',
-                'pattern': r'console\.(log|warn|error)',
-                'message': '프로덕션 코드에서 console 사용을 피하세요.',
-                'priority': 'P3'
-            },
-            'eqeqeq': {
-                'description': '엄격한 비교 연산자 사용',
-                'pattern': r'[^=!]==[^=]|[^=!]!=[^=]',
-                'message': '== 대신 ===, != 대신 !==를 사용하세요.',
-                'priority': 'P2'
-            }
-        }
-
-    def check_violations(self, file_content: str, file_path: str, config: Dict) -> List[Dict]:
-        """ESLint 규칙 위반 검사"""
-        violations = []
-        rules = self.get_default_rules()
-
-        # ESLint rules에서 "off"된 규칙 제거
-        eslint_rules = config.get('rules', {})
-        for rule_name, rule_value in eslint_rules.items():
-            if rule_value == "off" or rule_value == 0:
-                if rule_name in rules:
-                    del rules[rule_name]
-
-        lines = file_content.split('\n')
-
-        for line_num, line in enumerate(lines, 1):
-            for rule_name, rule_config in rules.items():
-                if rule_config.get('pattern') and re.search(rule_config['pattern'], line):
-                    violations.append({
-                        'line': line_num,
-                        'rule': rule_name,
-                        'priority': rule_config['priority'],
-                        'category': 'eslint',
-                        'message': rule_config['message'],
-                        'suggestion': self._get_suggestion(rule_name, line)
-                    })
-
-        return violations
-
-    def _get_suggestion(self, rule_name: str, line: str) -> str:
-        suggestions = {
-            'no-unused-vars': '사용하지 않는 변수를 제거하거나 언더스코어(_)로 시작하세요.',
-            'prefer-const': 'let → const 변경',
-            'no-console': 'console.log → 로깅 라이브러리 사용',
-            'eqeqeq': '== → ===, != → !== 변경'
-        }
-        return suggestions.get(rule_name, '해당 규칙에 맞게 수정해주세요.')
+rules에서 "off" 또는 0으로 설정된 규칙은 검사하지 않습니다.
+extends 설정도 고려해주세요.
+"""
 
 class UniversalCodeAnalyzer:
-    """범용 코드 분석기"""
+    """AI 기반 범용 코드 분석기"""
 
     def __init__(self, repo, pr):
         self.repo = repo
         self.pr = pr
+        self.openai_client = openai.OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+
+        # AI 기반 린터들 초기화
         self.linters = {
-            'kotlin': KotlinLinter(),
-            'swift': SwiftLinter(),
-            'javascript': JavaScriptLinter()
+            'kotlin': KotlinLinter(self.openai_client),
+            'swift': SwiftLinter(self.openai_client),
+            'javascript': JavaScriptLinter(self.openai_client)
         }
 
     def detect_language(self, file_path: str) -> Optional[str]:
@@ -364,10 +211,10 @@ class UniversalCodeAnalyzer:
                     return lang_name
         return None
 
-    def get_linter_config(self, language: str) -> Dict:
-        """언어별 린터 설정 가져오기"""
+    def get_linter_config_content(self, language: str) -> str:
+        """언어별 린터 설정 파일 내용 가져오기"""
         if language not in self.linters:
-            return {}
+            return ""
 
         linter = self.linters[language]
 
@@ -376,22 +223,24 @@ class UniversalCodeAnalyzer:
             try:
                 content = self.repo.get_contents(config_file)
                 config_content = content.decoded_content.decode('utf-8')
-                return linter.parse_config(config_content, config_file)
+                print(f"✅ {language} 설정 파일 발견: {config_file}")
+                return config_content
             except:
                 continue
 
-        return {}  # 설정 파일이 없으면 빈 설정
+        print(f"⚠️ {language} 설정 파일 없음 - 기본 규칙 사용")
+        return "# 설정 파일이 없습니다. 기본 규칙을 사용합니다."
 
     def analyze_file(self, file_path: str, file_content: str) -> List[Dict]:
-        """파일 분석"""
+        """AI 기반 파일 분석"""
         language = self.detect_language(file_path)
         if not language:
             return []
 
         linter = self.linters[language]
-        config = self.get_linter_config(language)
+        config_content = self.get_linter_config_content(language)
 
-        return linter.check_violations(file_content, file_path, config)
+        return linter.analyze_with_ai(file_content, file_path, config_content)
 
     def get_supported_extensions(self) -> Set[str]:
         """지원하는 모든 파일 확장자"""
@@ -402,20 +251,15 @@ class UniversalCodeAnalyzer:
 
     def get_analysis_summary(self) -> str:
         """분석 설정 요약"""
-        summary = "🔧 **범용 코드 분석기 설정**\n\n"
+        summary = "🤖 **AI 기반 범용 코드 분석기**\n\n"
 
         for lang_name, linter in self.linters.items():
-            config = self.get_linter_config(lang_name)
+            config_content = self.get_linter_config_content(lang_name)
+            has_config = len(config_content) > 50  # 실제 설정이 있는지 확인
+
             summary += f"### {linter.get_language_name().title()}\n"
             summary += f"- 파일 확장자: {', '.join(linter.get_file_extensions())}\n"
-            summary += f"- 설정 파일: {', '.join(linter.get_config_files())}\n"
-
-            if config:
-                disabled_count = len(config.get('disabled_rules', []))
-                summary += f"- 비활성 규칙: {disabled_count}개\n"
-            else:
-                summary += f"- 설정: 기본 규칙 사용\n"
-
-            summary += "\n"
+            summary += f"- 린터: {linter.get_linter_description().split('.')[0]}\n"
+            summary += f"- 설정: {'프로젝트 설정 사용' if has_config else '기본 규칙 사용'}\n\n"
 
         return summary
