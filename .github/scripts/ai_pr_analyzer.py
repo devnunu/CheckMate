@@ -4,6 +4,7 @@ import json
 import openai
 from github import Github
 import re
+from datetime import datetime
 
 class PRAnalyzer:
     def __init__(self):
@@ -18,27 +19,41 @@ class PRAnalyzer:
         self.repo = self.github_client.get_repo(self.repo_name)
         self.pr = self.repo.get_pull(self.pr_number)
 
-    def read_conventions(self):
-        """README에서 컨벤션 정보 읽기"""
+    def get_project_context(self):
+        """프로젝트 컨텍스트 파악 (언어, 프레임워크 등)"""
         try:
-            readme = self.repo.get_contents("README.md")
-            readme_content = readme.decoded_content.decode('utf-8')
+            # 프로젝트 파일들을 통해 기술 스택 파악
+            tech_stack = []
 
-            # AI 리뷰 가이드라인 섹션 추출
-            convention_match = re.search(
-                r'## AI 리뷰 가이드라인.*?(?=##|$)',
-                readme_content,
-                re.DOTALL | re.IGNORECASE
-            )
+            # 주요 설정 파일들 확인
+            config_files = [
+                'package.json', 'build.gradle', 'pom.xml', 'requirements.txt',
+                'Podfile', 'Package.swift', 'go.mod', 'Cargo.toml'
+            ]
 
-            if convention_match:
-                return convention_match.group(0)
-            else:
-                return "컨벤션 가이드라인이 README에서 발견되지 않았습니다."
+            for config_file in config_files:
+                try:
+                    content = self.repo.get_contents(config_file)
+                    if config_file == 'package.json':
+                        tech_stack.append('JavaScript/Node.js')
+                    elif config_file in ['build.gradle', 'pom.xml']:
+                        tech_stack.append('Java/Android')
+                    elif config_file == 'requirements.txt':
+                        tech_stack.append('Python')
+                    elif config_file in ['Podfile', 'Package.swift']:
+                        tech_stack.append('iOS/Swift')
+                    elif config_file == 'go.mod':
+                        tech_stack.append('Go')
+                    elif config_file == 'Cargo.toml':
+                        tech_stack.append('Rust')
+                except:
+                    continue
+
+            return ', '.join(tech_stack) if tech_stack else "General"
 
         except Exception as e:
-            print(f"README 읽기 실패: {e}")
-            return "컨벤션 정보를 읽을 수 없습니다."
+            print(f"프로젝트 컨텍스트 파악 실패: {e}")
+            return "General"
 
     def get_changed_files_content(self):
         """변경된 파일들의 내용과 diff 정보 가져오기"""
@@ -69,121 +84,247 @@ class PRAnalyzer:
 
         return changed_files
 
-    def analyze_with_ai(self, changed_files, conventions):
-        """AI를 사용하여 PR 분석"""
+    def find_related_prs(self):
+        """관련 PR들 찾기 (최근 30개 PR 중에서)"""
+        try:
+            # 최근 30개 PR 가져오기 (현재 PR 제외)
+            recent_prs = list(self.repo.get_pulls(state='all', sort='updated', direction='desc'))[:30]
+            related_prs = []
 
-        # 분석할 내용 준비
+            # 현재 PR의 키워드 추출
+            current_keywords = self.extract_keywords(self.pr_title + " " + (self.pr_body or ""))
+
+            for pr in recent_prs:
+                if pr.number == self.pr_number:  # 현재 PR 제외
+                    continue
+
+                # 각 PR의 키워드와 비교
+                pr_keywords = self.extract_keywords(pr.title + " " + (pr.body or ""))
+
+                # 공통 키워드 개수 계산
+                common_keywords = current_keywords.intersection(pr_keywords)
+
+                if len(common_keywords) >= 2:  # 2개 이상 공통 키워드
+                    related_prs.append({
+                        'number': pr.number,
+                        'title': pr.title,
+                        'state': pr.state,
+                        'common_keywords': list(common_keywords)
+                    })
+
+            return related_prs[:3]  # 최대 3개만 반환
+
+        except Exception as e:
+            print(f"관련 PR 찾기 실패: {e}")
+            return []
+
+    def extract_keywords(self, text):
+        """텍스트에서 키워드 추출"""
+        # 간단한 키워드 추출 (개선 가능)
+        keywords = set()
+
+        # 일반적인 개발 관련 키워드들
+        dev_keywords = [
+            'fix', 'bug', 'feature', 'add', 'update', 'remove', 'refactor',
+            'api', 'ui', 'test', 'security', 'performance', 'database',
+            'auth', 'login', 'user', 'admin', 'config', 'lint', 'style'
+        ]
+
+        text_lower = text.lower()
+        for keyword in dev_keywords:
+            if keyword in text_lower:
+                keywords.add(keyword)
+
+        # 파일 확장자 추출
+        extensions = re.findall(r'\.(\w+)', text)
+        for ext in extensions:
+            if ext in ['py', 'js', 'kt', 'swift', 'java', 'go', 'rs']:
+                keywords.add(ext)
+
+        return keywords
+
+    def generate_walkthrough_summary(self, changed_files, project_context):
+        """CodeRabbit Walkthrough 스타일의 PR Summary 생성"""
+
+        # 변경된 파일들의 상세 정보 준비
+        files_info = []
+        for file in changed_files:
+            file_summary = f"**{file['filename']}** ({file['status']})\n"
+            file_summary += f"- 추가: {file['additions']}줄, 삭제: {file['deletions']}줄\n"
+
+            if file['patch']:
+                # diff 일부만 포함 (분석을 위해)
+                patch_preview = file['patch'][:1000] if len(file['patch']) > 1000 else file['patch']
+                file_summary += f"```diff\n{patch_preview}\n```\n"
+
+            files_info.append(file_summary)
+
         analysis_prompt = f"""
-당신은 코드 리뷰 전문가입니다. 다음 PR을 분석하여 리뷰 템플릿을 생성해주세요.
+당신은 코드 리뷰 전문가입니다. CodeRabbit Walkthrough 스타일로 PR 분석을 수행해주세요.
+
+**프로젝트 기술 스택:** {project_context}
 
 **PR 정보:**
 - 제목: {self.pr_title}
 - 설명: {self.pr_body}
 
-**팀 컨벤션:**
-{conventions}
+**변경된 파일 정보:**
+{chr(10).join(files_info)}
 
-**변경된 파일들:**
-"""
-
-        # 각 파일의 변경사항 추가
-        for file in changed_files:
-            analysis_prompt += f"\n### {file['filename']} ({file['status']})\n"
-            analysis_prompt += f"추가: {file['additions']}줄, 삭제: {file['deletions']}줄\n"
-
-            if file['patch']:
-                # diff가 너무 길면 자르기 (토큰 제한 고려)
-                patch = file['patch'][:3000] if len(file['patch']) > 3000 else file['patch']
-                analysis_prompt += f"```diff\n{patch}\n```\n"
-
-        analysis_prompt += """
+**분석 중점 사항:**
+1. **전체적인 변경사항 이해**: 비즈니스 로직과 기술적 의미
+2. **리팩터링 제안**: 코드 구조 개선, 중복 제거, 가독성 향상
+3. **로직 오류 위험**: 비즈니스 로직 실수, 엣지 케이스 누락
+4. **버그 가능성**: 런타임 오류, 메모리 누수, 동시성 문제
+5. **API 설계**: 인터페이스 일관성, 에러 처리
+6. **성능 이슈**: 비효율적인 알고리즘, 데이터베이스 쿼리 최적화
 
 **요청사항:**
-다음 형식으로 PR 분석 결과를 작성해주세요:
+다음 형식으로 정확히 작성해주세요:
 
-## 🤖 AI PR 분석 결과
+## 📝 Walkthrough
 
-### 📋 작업 개요
-[전체적인 변경사항의 목적과 의도를 요약해주세요]
+[전체적인 변경사항의 목적과 주요 내용을 2-3문장으로 요약. 비즈니스 가치와 기술적 의미를 포함하여 작성해주세요.]
 
-### 🔧 주요 변경사항
-[파일별/기능별 주요 변경사항을 요약해주세요]
+## Changes
 
-### ⚠️ 리뷰 집중 포인트
-[다음 태그를 사용하여 위험 가능성이 있는 부분을 표시해주세요]
-- 🔴 **[로직오류위험]** `파일명:라인` - 설명
-- 🟡 **[사이드이펙트]** `파일명:라인` - 설명
-- 🔵 **[성능저하]** `파일명:라인` - 설명
-- 🟠 **[보안취약]** `파일명:라인` - 설명
-- 🟣 **[호환성이슈]** `파일명:라인` - 설명
-- ⚫ **[데이터정합성]** `파일명:라인` - 설명
+| File Path | Change Summary |
+|-----------|---------------|
+{self.generate_changes_table_template(changed_files)}
 
-### 💡 추가 권장사항
-[코드 품질 향상을 위한 일반적인 제안사항이 있다면 포함해주세요]
+## 🚨 Critical Review Points
 
-중요하거나 위험할 가능성이 있는 변경사항만 선별해서 포함해주세요.
+**🔴 High Priority (버그 위험)**
+- [런타임 오류 가능성이 있는 부분을 구체적으로 명시]
+- [메모리 누수나 성능 저하 우려사항]
+
+**🟡 Medium Priority (리팩터링 제안)**
+- [코드 구조 개선이 필요한 부분]
+- [중복 코드 제거나 추상화 제안]
+
+**🔵 Low Priority (개선 아이디어)**
+- [가독성 향상을 위한 제안]
+- [미래 확장성을 고려한 개선사항]
+
+## 💡 Recommendations
+
+- [구체적이고 실행 가능한 개선 방안]
+- [베스트 프랙티스 적용 제안]
+- [추가 테스트 케이스 제안]
+
+**참고:**
+- 정적 분석은 SonarQube가 담당하므로 코드 스타일은 제외
+- 비즈니스 로직과 아키텍처 관점에서 분석
+- 실제 개발자가 놓칠 수 있는 부분에 집중
+- 구체적이고 실행 가능한 제안 제시
 """
 
         try:
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "당신은 안드로이드/iOS 개발에 전문적인 코드 리뷰어입니다. PR의 전체적인 맥락을 파악하여 실수 가능성이 높은 부분을 중심으로 정확하고 실용적인 분석을 제공합니다."},
+                    {"role": "system", "content": "당신은 시니어 개발자로서 CodeRabbit 스타일의 코드 리뷰 전문가입니다. 정적 분석 도구가 놓치는 고차원적인 문제를 찾아내고 건설적인 제안을 제공하세요."},
                     {"role": "user", "content": analysis_prompt}
                 ],
                 max_tokens=2500,
-                temperature=0.3
+                temperature=0.2
             )
 
             return response.choices[0].message.content
 
         except Exception as e:
-            return f"❌ AI PR 분석 중 오류가 발생했습니다: {str(e)}"
+            return f"❌ PR Walkthrough 생성 중 오류가 발생했습니다: {str(e)}"
 
-    def minimize_previous_comments(self):
-        """이전 AI 분석 코멘트를 minimize 처리"""
-        comments = self.pr.get_issue_comments()
+    def generate_changes_table_template(self, changed_files):
+        """Changes 테이블 템플릿 생성"""
+        template_rows = []
+        for file in changed_files:
+            # 상태에 따른 이모지 추가
+            status_emoji = {
+                'added': '➕',
+                'modified': '📝',
+                'removed': '❌',
+                'renamed': '📛'
+            }
+            emoji = status_emoji.get(file['status'], '📝')
+            template_rows.append(f"| {emoji} {file['filename']} | [AI가 이 파일의 주요 변경사항을 분석하여 요약] |")
+        return "\n".join(template_rows)
 
-        for comment in comments:
-            # AI 봇이 작성한 코멘트 찾기
-            if (comment.user.login == 'github-actions[bot]' and
-                '🤖 AI PR 분석 결과' in comment.body):
+    def generate_tips_section(self):
+        """CodeRabbit 스타일 Tips 섹션 생성"""
+        related_prs = self.find_related_prs()
 
-                # 이전 코멘트 삭제 (또는 minimize 처리)
-                try:
-                    comment.delete()  # 완전 삭제
-                    print(f"이전 분석 코멘트 삭제: {comment.id}")
-                except Exception as e:
-                    # 삭제 권한이 없는 경우 minimize 처리
-                    try:
-                        updated_body = f"<!-- Minimized by new analysis -->\n<details>\n<summary>이전 분석 결과 (클릭하여 보기)</summary>\n\n{comment.body}\n</details>"
-                        comment.edit(updated_body)
-                        print(f"이전 코멘트 minimize 처리: {comment.id}")
-                    except Exception as e2:
-                        print(f"코멘트 처리 실패: {e2}")
+        tips_section = """
 
-    def post_analysis_comment(self, analysis_result):
-        """분석 결과를 PR에 코멘트로 등록"""
+## 🪧 Tips
 
-        # 이전 PR 분석 코멘트들을 삭제/minimize 처리
-        self.minimize_previous_comments()
+### 💬 AI 리뷰 명령어
+- `/ai-review` - 전체 AI 리뷰 재실행
+- 코드 리뷰 코멘트에 질문하여 AI와 대화 가능
 
-        # PR 분석 템플릿 코멘트 등록
+### 🔍 Possibly Related PRs"""
+
+        if related_prs:
+            for pr in related_prs:
+                state_emoji = "✅" if pr['state'] == 'closed' else "🔄"
+                tips_section += f"\n- {state_emoji} [#{pr['number']}](https://github.com/{self.repo_name}/pull/{pr['number']}): {pr['title']}"
+        else:
+            tips_section += "\n- 관련된 최근 PR이 없습니다."
+
+        return tips_section
+
+    def remove_previous_ai_comments(self):
+        """이전 AI 분석 코멘트들 삭제 또는 minimize 처리"""
         try:
-            comment = self.pr.create_issue_comment(analysis_result)
-            print(f"✅ PR 분석 템플릿 코멘트 등록 완료: {comment.html_url}")
+            comments = self.pr.get_issue_comments()
+
+            for comment in comments:
+                # AI 봇이 작성한 코멘트 찾기
+                if (comment.user.login == 'github-actions[bot]' and
+                    '📝 Walkthrough' in comment.body):
+                    try:
+                        comment.delete()
+                        print(f"✅ 이전 AI 분석 코멘트 삭제: {comment.id}")
+                    except Exception as e:
+                        print(f"⚠️ 코멘트 삭제 실패, minimize 처리 시도: {e}")
+                        # 삭제 실패 시 minimize 처리
+                        try:
+                            minimized_body = f"<!-- Minimized by new analysis -->\n<details>\n<summary>이전 분석 결과 (클릭하여 보기)</summary>\n\n{comment.body}\n</details>"
+                            comment.edit(minimized_body)
+                            print(f"✅ 이전 코멘트 minimize 처리: {comment.id}")
+                        except Exception as e2:
+                            print(f"❌ 코멘트 처리 완전 실패: {e2}")
+
+        except Exception as e:
+            print(f"⚠️ 이전 코멘트 정리 중 오류: {e}")
+
+    def post_walkthrough_comment(self, walkthrough_content):
+        """Walkthrough 분석 결과를 PR에 코멘트로 등록"""
+
+        # 이전 AI 분석 코멘트 정리
+        self.remove_previous_ai_comments()
+
+        # Tips 섹션 추가
+        tips_section = self.generate_tips_section()
+        final_content = walkthrough_content + tips_section
+
+        # 코멘트 생성
+        try:
+            comment = self.pr.create_issue_comment(final_content)
+            print(f"✅ AI Walkthrough 코멘트 등록 완료: {comment.html_url}")
             return True
         except Exception as e:
-            print(f"❌ PR 템플릿 코멘트 등록 실패: {e}")
+            print(f"❌ Walkthrough 코멘트 등록 실패: {e}")
             return False
 
     def run_analysis(self):
         """전체 분석 프로세스 실행"""
-        print("🚀 AI PR 분석을 시작합니다...")
+        print("🚀 AI PR Walkthrough 분석을 시작합니다...")
 
-        # 1. 컨벤션 정보 읽기
-        print("📖 컨벤션 정보를 읽는 중...")
-        conventions = self.read_conventions()
+        # 1. 프로젝트 컨텍스트 파악
+        print("🔍 프로젝트 기술 스택을 파악하는 중...")
+        project_context = self.get_project_context()
+        print(f"📊 감지된 기술 스택: {project_context}")
 
         # 2. 변경된 파일 정보 가져오기
         print("📁 변경된 파일 정보를 수집하는 중...")
@@ -195,18 +336,19 @@ class PRAnalyzer:
 
         print(f"📊 총 {len(changed_files)}개 파일이 변경되었습니다.")
 
-        # 3. AI 분석 실행
-        print("🤖 AI 분석을 실행하는 중...")
-        analysis_result = self.analyze_with_ai(changed_files, conventions)
+        # 3. Walkthrough Summary 생성
+        print("🤖 AI Walkthrough 분석을 생성하는 중...")
+        walkthrough_content = self.generate_walkthrough_summary(changed_files, project_context)
 
-        # 4. 결과를 PR에 코멘트로 등록
-        print("💬 분석 결과를 PR에 등록하는 중...")
-        success = self.post_analysis_comment(analysis_result)
+        # 4. PR에 코멘트로 등록
+        print("💬 PR에 Walkthrough 코멘트를 등록하는 중...")
+        success = self.post_walkthrough_comment(walkthrough_content)
 
         if success:
-            print("✅ AI PR 분석이 완료되었습니다!")
+            print("✅ AI PR Walkthrough 분석이 완료되었습니다!")
+            print("🎯 분석 중점: 리팩터링 제안, 오류 위험 분석, 버그 가능성 검토")
         else:
-            print("❌ 분석 결과 등록에 실패했습니다.")
+            print("❌ AI PR Walkthrough 분석에 실패했습니다.")
 
 if __name__ == "__main__":
     analyzer = PRAnalyzer()
