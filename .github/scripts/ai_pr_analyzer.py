@@ -319,7 +319,7 @@ class PRAnalyzer:
 
     def run_analysis(self):
         """전체 분석 프로세스 실행"""
-        print("🚀 AI PR Walkthrough 분석을 시작합니다...")
+        print("🚀 AI PR 분석을 시작합니다...")
 
         # 1. 프로젝트 컨텍스트 파악
         print("🔍 프로젝트 기술 스택을 파악하는 중...")
@@ -342,13 +342,70 @@ class PRAnalyzer:
 
         # 4. PR에 코멘트로 등록
         print("💬 PR에 Walkthrough 코멘트를 등록하는 중...")
-        success = self.post_walkthrough_comment(walkthrough_content)
+        walkthrough_success = self.post_walkthrough_comment(walkthrough_content)
 
-        if success:
-            print("✅ AI PR Walkthrough 분석이 완료되었습니다!")
-            print("🎯 분석 중점: 리팩터링 제안, 오류 위험 분석, 버그 가능성 검토")
+        # 5. 라인별 전문 분석
+        print("🔍 라인별 세부 분석을 시작합니다...")
+
+        # 지원하는 파일 확장자
+        supported_extensions = ['.py', '.kt', '.swift', '.java', '.js', '.ts']
+
+        all_issues = {}
+        analyzed_count = 0
+        skipped_count = 0
+
+        for file_info in changed_files:
+            file_path = file_info['filename']
+
+            # 삭제된 파일 건너뛰기
+            if file_info['status'] == 'removed':
+                continue
+
+            # 지원하는 파일 확장자 확인
+            is_supported = any(file_path.endswith(ext) for ext in supported_extensions)
+            if not is_supported:
+                skipped_count += 1
+                continue
+
+            print(f"📝 라인별 분석 중: {file_path}")
+            analyzed_count += 1
+
+            try:
+                # 전문적인 라인별 분석
+                issues = self.analyze_file_for_issues(
+                    file_path,
+                    file_info.get('content', ''),
+                    file_info.get('patch', '')
+                )
+
+                if issues:
+                    all_issues[file_path] = issues
+                    print(f"  ⚠️ {len(issues)}개 이슈 발견")
+                else:
+                    print(f"  ✅ 이슈 없음")
+
+            except Exception as e:
+                print(f"  ❌ 분석 실패: {e}")
+                continue
+
+        # 6. 라인별 리뷰 생성
+        print(f"\n📊 라인별 분석 완료: {analyzed_count}개 파일 분석, {skipped_count}개 파일 건너뛰기")
+
+        if all_issues:
+            total_issues = sum(len(issues) for issues in all_issues.values())
+            print(f"📈 총 {total_issues}개 이슈 발견")
+            self.create_professional_style_review(all_issues)
         else:
-            print("❌ AI PR Walkthrough 분석에 실패했습니다.")
+            print("✅ 모든 분석 대상 파일이 품질 기준을 통과했습니다!")
+
+        # 최종 결과 출력
+        if walkthrough_success and all_issues:
+            print("✅ AI PR 분석이 완료되었습니다!")
+            print("🎯 Walkthrough 코멘트 + 전문적인 라인별 리뷰 모두 생성됨")
+        elif walkthrough_success:
+            print("✅ AI PR Walkthrough 분석이 완료되었습니다!")
+        else:
+            print("❌ AI PR 분석에 실패했습니다.")
 
 if __name__ == "__main__":
     analyzer = PRAnalyzer()
