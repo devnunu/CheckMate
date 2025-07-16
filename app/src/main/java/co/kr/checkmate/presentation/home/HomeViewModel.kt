@@ -1,5 +1,6 @@
 package co.kr.checkmate.presentation.home
 
+import android.util.Log
 import androidx.lifecycle.viewModelScope
 import co.kr.checkmate.domain.model.Task
 import co.kr.checkmate.domain.usecase.AddMemoUseCase
@@ -25,6 +26,7 @@ class HomeViewModel(
 ) {
 
     init {
+        Log.d("NUNU", "Start")
         loadWeekTasks(LocalDate.now())
     }
 
@@ -195,9 +197,10 @@ class HomeViewModel(
                         )
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
+                val message = "태스크를 불러오는데 실패했습니다."
                 setState {
-                    copy(isLoading = false, error = "태스크를 불러오는데 실패했습니다.")
+                    copy(isLoading = false, error = message)
                 }
             }
         }
