@@ -1,5 +1,6 @@
 package co.kr.checkmate.presentation.home
 
+import android.util.Log
 import androidx.lifecycle.viewModelScope
 import co.kr.checkmate.domain.model.Task
 import co.kr.checkmate.domain.usecase.AddMemoUseCase
@@ -25,6 +26,7 @@ class HomeViewModel(
 ) {
 
     init {
+        Log.d("NUNU", "Start")
         loadWeekTasks(LocalDate.now())
     }
 
@@ -195,9 +197,10 @@ class HomeViewModel(
                         )
                     }
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
+                val message = "태스크를 불러오는데 실패했습니다."
                 setState {
-                    copy(isLoading = false, error = "태스크를 불러오는데 실패했습니다.")
+                    copy(isLoading = false, error = message)
                 }
             }
         }
@@ -212,9 +215,7 @@ class HomeViewModel(
         setState { copy(isLoading = true) }
         try {
             // 현재 선택된 날짜의 미완료 할 일들만 가져옴
-            val uncompletedTodos = state.tasks
-                .filterIsInstance<Task.Todo>()
-                .filter { !it.isCompleted }
+            val uncompletedTodos = getUncompletedTodos()
 
             // 오늘 날짜로 TD 옮기기
             uncompletedTodos.forEach { todo ->
@@ -232,6 +233,11 @@ class HomeViewModel(
             setState { copy(isLoading = false) }
         }
     }
+
+    private fun getUncompletedTodos(): List<Task.Todo> =
+        state.tasks
+            .filterIsInstance<Task.Todo>()
+            .filter { !it.isCompleted }
 
     /**
      * Modal
