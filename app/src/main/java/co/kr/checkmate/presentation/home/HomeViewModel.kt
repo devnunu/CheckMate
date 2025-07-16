@@ -212,9 +212,7 @@ class HomeViewModel(
         setState { copy(isLoading = true) }
         try {
             // 현재 선택된 날짜의 미완료 할 일들만 가져옴
-            val uncompletedTodos = state.tasks
-                .filterIsInstance<Task.Todo>()
-                .filter { !it.isCompleted }
+            val uncompletedTodos = getUncompletedTodos()
 
             // 오늘 날짜로 TD 옮기기
             uncompletedTodos.forEach { todo ->
@@ -232,6 +230,11 @@ class HomeViewModel(
             setState { copy(isLoading = false) }
         }
     }
+
+    private fun getUncompletedTodos(): List<Task.Todo> =
+        state.tasks
+            .filterIsInstance<Task.Todo>()
+            .filter { !it.isCompleted }
 
     /**
      * Modal
